@@ -1,0 +1,84 @@
+<!doctype html>
+
+<html>
+  <head>
+    <title>aws-lambda tests</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1, user-scalable=yes">
+    <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
+    <script src="../../web-component-tester/browser.js"></script>
+
+    <link rel="import" href="../aws-lambda.html">
+  </head>
+  <body>
+
+    <test-fixture id="Basic">
+      <template>
+        <aws-lambda function-name="testFunction"></aws-lambda>
+      </template>
+    </test-fixture>
+
+    <test-fixture id="MissingFunction">
+      <template>
+        <aws-lambda></aws-lambda>
+      </template>
+    </test-fixture>
+
+    <script>
+      var AWS = {};
+
+      suite('aws-lambda', function() {
+        var lambdaElement;
+
+        suite('attached', function () {
+          setup(function () {
+            AWS.Lambda = sinon.stub();
+            lambdaElement = fixture('Basic');
+          });
+
+          test('constructs a service interface object', function() {
+            expect(AWS.Lambda).to.be.calledOnce;
+          });
+        });
+
+        suite('basic usage', function() {
+          setup(function () {
+            AWS.Lambda = function Lambda () {
+              this.invoke = sinon.stub().callsArgWith(1, null, {StatusCode: 200});
+            };
+            lambdaElement = fixture('Basic');
+          });
+
+          test('invokes the lambda function', function() {
+            lambdaElement.invoke();
+            expect(lambdaElement.lastResponse).to.deep.equal({StatusCode: 200});
+            expect(lambdaElement.lastError).to.be.null;
+          });
+
+          test('invokes the lambda function with payload', function () {
+            var payload = {id: '123'};
+            lambdaElement._lambdaRef.invoke = sinon.stub();
+            lambdaElement.invoke(payload);
+            expect(lambdaElement._lambdaRef.invoke).to.be.calledWith({
+              FunctionName: 'testFunction',
+              Payload: JSON.stringify(payload)
+            });
+          });
+        });
+
+        suite('missing function name', function() {
+          setup(function () {
+            AWS.Lambda = function Lambda () {
+              this.invoke = sinon.stub().callsArgWith(1, null, {StatusCode: 200});
+            };
+            lambdaElement = fixture('MissingFunction');
+          });
+
+          test('returns rejected promise on invocation', function() {
+            expect(lambdaElement.invoke.bind(lambdaElement)).to.throw('No function name is set');
+          });
+        });
+      });
+    </script>
+  </body>
+</html>

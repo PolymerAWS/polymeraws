@@ -1,0 +1,93 @@
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="aws-sdk-script.html">
+
+<!--
+`aws-app`
+Polymer Web Components for AWS
+-->
+
+<dom-module id="aws-app">
+  <script>
+    (function () {
+      'use strict';
+
+      /**
+       * The aws-app element is used for initializing and configuring your
+       * connection to AWS. It is permanently initialized once attached and
+       * should not be dynamically bound.
+       *
+       * Example usage:
+       *
+       * ```html
+       * <aws-app region="eu-west-1"></aws-app>
+       * ```
+       */
+      Polymer({
+        is: 'aws-app',
+
+        properties: {
+          /**
+           * The region your services are located.
+           *
+           * For example: 'eu-west-1'
+           */
+          region: {
+            type: String,
+            observer: '_updateRegion'
+          },
+
+          /**
+           * The access key id for authentication.
+           *
+           * This access key id can be generated based on an IAM role. However,
+           * the preferred method for authentication is using Cognito identity.
+           */
+          accessKeyId: {
+            type: String
+          },
+
+          /**
+           * The secret access key for authentication.
+           *
+           * This secret access key can be generated based on an IAM role.
+           * However, the preferred method for authentication is using
+           * Cognito identity.
+           */
+          secretAccessKey: {
+            type: String
+          },
+
+          /**
+           * Whether SSL is enabled for requests.
+           */
+          sslDisabled: {
+            type: Boolean,
+            value: false,
+            observer: '_updateSSLSetting'
+          }
+        },
+
+        observers: [
+          '_authenticateIAmUser(accessKeyId, secretAccessKey)'
+        ],
+
+        _authenticateIAmUser: function (accessKeyId, secretAccessKey) {
+          if (accessKeyId && secretAccessKey) {
+            AWS.config.update({
+              accessKeyId: accessKeyId,
+              secretAccessKey: secretAccessKey
+            });
+          }
+        },
+
+        _updateRegion: function (region) {
+          AWS.config.region = region;
+        },
+
+        _updateSSLSetting: function (sslDisabled) {
+          AWS.config.sslEnabled = !sslDisabled;
+        }
+      });
+    })();
+  </script>
+</dom-module>

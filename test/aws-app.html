@@ -1,0 +1,78 @@
+<!doctype html>
+
+<html>
+  <head>
+    <title>aws-app tests</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1, user-scalable=yes">
+    <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
+    <script src="../../web-component-tester/browser.js"></script>
+
+    <link rel="import" href="../aws-app.html">
+  </head>
+  <body>
+
+    <test-fixture id="Basic">
+      <template>
+        <aws-app region="eu-west-1"></aws-app>
+      </template>
+    </test-fixture>
+
+    <test-fixture id="SSL">
+      <template>
+        <aws-app ssl-disabled></aws-app>
+      </template>
+    </test-fixture>
+
+    <test-fixture id="Credentials">
+      <template>
+        <aws-app access-key-id="keyId" secret-access-key="secretKey"></aws-app>
+      </template>
+    </test-fixture>
+
+    <script>
+      var AWS = {
+        config: {
+          update: sinon.stub()
+        }
+      };
+
+      suite('aws-app', function() {
+        var appElement;
+
+        suite('basic usage', function () {
+          setup(function () {
+            appElement = fixture('Basic');
+          });
+
+          test('sets the region in AWS.config', function() {
+            expect(AWS.config.region).to.equal('eu-west-1');
+          });
+        });
+
+        suite('with ssl disabled', function () {
+          setup(function () {
+            appElement = fixture('SSL');
+          });
+
+          test('disable SSL in AWS', function () {
+            expect(AWS.config.sslEnabled).to.equal(false);
+          });
+        });
+
+        suite('with IAM credentials', function () {
+          setup(function () {
+            appElement = fixture('Credentials');
+          });
+
+          test('authenticates using IAM credentials', function () {
+            expect(AWS.config.update).to.be.calledWith({
+              accessKeyId: 'keyId',
+              secretAccessKey: 'secretKey'
+            });
+          });
+        });
+      });
+    </script>
+  </body>
+</html>
