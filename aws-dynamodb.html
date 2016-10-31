@@ -38,27 +38,6 @@ Polymer Web Component for AWS DynamoDB
 
         properties: {
           /**
-           * The name of the DynamoDB Table
-           *
-           * For example: 'notes'
-           */
-          tableName: {
-            type: String,
-            value: ''
-          },
-
-          /**
-           * The operation which is used for getting items from the DynamoDB
-           *
-           * The only accepted values are `scan` and `query`
-           */
-          operation: {
-            type: String,
-            value: 'scan',
-            observer: '_getData'
-          },
-
-          /**
            * Operation's response
            *
            * This will be update every time the operation or query changes, changes
@@ -80,6 +59,35 @@ Polymer Web Component for AWS DynamoDB
             value: false
           },
 
+          /**
+           * The maximum number of records to retrieve for a scan or query
+           */
+          limit: {
+            type: Number,
+            value: 100
+          },
+
+          /**
+           * The operation which is used for getting items from the DynamoDB
+           *
+           * The only accepted values are `scan` and `query`
+           */
+          operation: {
+            type: String,
+            value: 'scan',
+            observer: '_getData'
+          },
+
+          /**
+           * The name of the DynamoDB Table
+           *
+           * For example: 'notes'
+           */
+          tableName: {
+            type: String,
+            value: ''
+          },
+
           _params: {
             type: Object
           },
@@ -91,7 +99,7 @@ Polymer Web Component for AWS DynamoDB
         },
 
         observers: [
-          '_computeParams(tableName)'
+          '_computeParams(tableName, limit)'
         ],
 
         attached: function() {
@@ -117,10 +125,11 @@ Polymer Web Component for AWS DynamoDB
 // @todo: implement
         },
 
-        _computeParams: function(table) {
+        _computeParams: function(table, limit) {
           if (table !== '') {
             this.set('params', {
-              TableName: table
+              TableName: table,
+              Limit: limit
             });
 
             if (this._isOperationValid(this.operation)) {
