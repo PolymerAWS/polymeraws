@@ -52,11 +52,7 @@ Polymer Web Components for AWS Lambda
           /**
            * Invoke's response.
            *
-           * Note that lastResponse and lastError are set when invoke finishes, so if
-           * loading is true, then lastResponse and lastError will correspond to the
-           * result of the previous request.
-           *
-           * @type {Object}
+           * Note that lastResponse and lastError are set when invoke finishes.
            */
           lastResponse: {
             type: Object,
@@ -66,8 +62,6 @@ Polymer Web Components for AWS Lambda
 
           /**
            * Invoke's error, if any.
-           *
-           * @type: {Object}
            */
           lastError: {
             type: Object,
