@@ -16,7 +16,7 @@ Example usage:
     region="eu-west-1">
 </aws-app>
 <aws-dynamodb
-    table="notes"
+    table-name="notes"
     data="{{data}}">
 </aws-dynamodb>
 ```
