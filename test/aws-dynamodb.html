@@ -1,0 +1,96 @@
+<!doctype html>
+
+<html>
+  <head>
+    <title>aws-dynamodb tests</title>
+    <met charset="utf-8">
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1, user-scalable=yes">
+    <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
+    <script src="../../web-component-tester/browser.js"></script>
+
+    <link rel="import" href="../aws-dynamodb.html">
+  </head>
+  <body>
+
+    <test-fixture id="Basic">
+      <template>
+        <aws-dynamodb table="testTable"></aws-dynamodb>
+      </template>
+    </test-fixture>
+
+    <test-fixture id="Empty">
+      <template>
+        <aws-dynamodb></aws-dynamodb>
+      </template>
+    </test-fixture>
+
+    <script>
+      var AWS = {};
+
+      suite('<aws-dynamodb>', function() {
+        var dynamoDbElement;
+
+        suite('attached', function() {
+          setup(function() {
+            AWS.DynamoDB = sinon.stub().returns({
+              scan: function () {},
+              query: function () {}
+            });
+
+            dynamoDbElement = fixture('Basic');
+          });
+
+          test('constructs a service interface object', function() {
+            expect(AWS.DynamoDB).to.be.calledOnce;
+          });
+        });
+
+        suite('change table', function() {
+          setup(function() {
+            AWS.DynamoDB = function DynamoDB() {
+              this.scan = sinon.stub().callsArgWith(1, null, {});
+              this.query = sinon.stub().callsArgWith(1, null, {});
+            };
+            dynamoDbElement = fixture('Empty');
+            dynamoDbElement.set('tableName', 'testTable');
+          });
+
+          test('performs a scan', function() {
+            expect(dynamoDbElement._dynamoDBRef.scan).to.be.calledWith({
+              TableName: 'testTable'
+            });
+          });
+
+          test('performs a query', function() {
+            dynamoDbElement.set('operation', 'query');
+            expect(dynamoDbElement._dynamoDBRef.query).to.be.calledWith({
+              TableName: 'testTable'
+            });
+          });
+        });
+
+        suite('retrieve data', function() {
+          setup(function() {
+            AWS.DynamoDB = function DynamoDB() {
+              this.scan = sinon.stub().callsArgWith(1, null, {});
+              this.query = sinon.stub().callsArgWith(1, null, {});
+            };
+            dynamoDbElement = fixture('Basic');
+          });
+
+          test('parses returned data into a usable format', function() {
+            expect(dynamoDbElement.data).to.be.true;
+          });
+        });
+
+        suite.skip('update record', function() {
+
+        });
+
+        suite.skip('add record', function() {
+
+        });
+      });
+    </script>
+  </body>
+</html>

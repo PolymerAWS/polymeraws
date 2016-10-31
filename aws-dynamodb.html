@@ -1,0 +1,191 @@
+<link rel="import" href="../polymer/polymer.html">
+
+<!--
+`aws-dynamodb`
+Polymer Web Component for AWS DynamoDB
+-->
+
+<dom-module id="aws-dynamodb">
+  <script>
+    (function () {
+      'use strict';
+
+// @todo:
+// - option to override region (because of endpoint)?
+// - add readonly option to prevent writing on binding?
+// - limit and offset
+
+      /**
+       * The `aws-dynamodb` element is an easy way to retrieve and update
+       * AWS DynamoDB data.
+       *
+       * Example usage:
+       *
+       * ```html
+       * <aws-app
+       *      region="eu-west-1">
+       * </aws-app>
+       * <aws-dynamodb
+       *      table-name="notes"
+       *      data="{{data}}">
+       * </aws-dynamodb>
+       * ```
+       *
+       * The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
+       */
+      Polymer({
+        is: 'aws-dynamodb',
+
+        properties: {
+          /**
+           * The name of the DynamoDB Table
+           *
+           * For example: 'notes'
+           */
+          tableName: {
+            type: String,
+            value: ''
+          },
+
+          /**
+           * The operation which is used for getting items from the DynamoDB
+           *
+           * The only accepted values are `scan` and `query`
+           */
+          operation: {
+            type: String,
+            value: 'scan',
+            observer: '_getData'
+          },
+
+          /**
+           * Operation's response
+           *
+           * This will be update every time the operation or query changes, changes
+           * to this object will result in updates inside the database
+           */
+          data: {
+            type: Object,
+            notify: true
+          },
+
+          /**
+           * Whether data response data should be parsed
+           *
+           * If this is true the returned data will not contain the attribute types:
+           * `S, N, B, SS, NS, BS, M, L, NULL, BOOL`.
+           */
+          formatData: {
+            type: Boolean,
+            value: false
+          },
+
+          _params: {
+            type: Object
+          },
+
+          _dynamoDBRef: {
+            type: Object,
+            observer: '_getData'
+          }
+        },
+
+        observers: [
+          '_computeParams(tableName)'
+        ],
+
+        attached: function() {
+          this._dynamoDBRef = new AWS.DynamoDB();
+        },
+
+        /**
+         * Adds the record to the table
+         *
+         * @param   {Object} record The record that should be added to the table.
+         */
+        addRecord: function(record) {
+// @todo: implement
+        },
+
+        /**
+         * Updates the given record in the table
+         *
+         * @param   {Number} index The index of the record in the table.
+         * @param   {Object} record The updated record.
+         */
+        updateRecord: function(index, record) {
+// @todo: implement
+        },
+
+        _computeParams: function(table) {
+          if (table !== '') {
+            this.set('params', {
+              TableName: table
+            });
+
+            if (this._isOperationValid(this.operation)) {
+              this._getData();
+            }
+          }
+        },
+
+        _getData: function() {
+          if (!this._isOperationValid(this.operation)) {
+            throw new Error('Operation `' + this.operation + '` is not a valid operation');
+          }
+
+          if (this._dynamoDBRef) {
+            this._dynamoDBRef[this.operation](
+              this.params,
+              this._handleResponse.bind(this)
+            );
+          }
+        },
+
+        _handleResponse: function(error, data) {
+          if (error) {
+            throw new Error('Could not retrieve data from DynamoDB because: ' + error);
+          }
+
+          if (this.formatData) {
+            for (var i = 0, length = data.Items.length; i < length; i++) {
+              data.Items[i] = this._parseItem(data.Items[i]);
+            }
+
+            this.set('data', data.Items);
+          } else {
+            this.set('data', data.Items);
+          }
+        },
+
+        _isOperationValid: function(operation) {
+          return operation === 'scan' || operation === 'query';
+        },
+
+        // http://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_AttributeValue.html
+        _parseItem: function(item) {
+          var parsed = {};
+
+          for (var i in item) {
+            var type = Object.keys(item[i])[0];
+            parsed[i] = item[i][type];
+
+            if (type === 'N') {
+              parsed = parseFloat(item[i]);
+            }
+
+            if (type === 'BOOL') {
+              if (parsed[i] === 'true' || parsed[i] === true) {
+                parsed[i] = true;
+              } else {
+                parsed[i] = false;
+              }
+            }
+          }
+
+          return parsed;
+        }
+      });
+    })();
+  </script>
+</dom-module>
