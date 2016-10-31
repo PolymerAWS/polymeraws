@@ -166,19 +166,19 @@ Polymer Web Component for AWS DynamoDB
         _parseItem: function(item) {
           var parsed = {};
 
-          for (var i in item) {
-            var type = Object.keys(item[i])[0];
-            parsed[i] = item[i][type];
+          for (var j in item) {
+            var type = Object.keys(item[j])[0];
+            parsed[j] = item[j][type];
 
             if (type === 'N') {
-              parsed = parseFloat(item[i]);
+              parsed[j] = parseFloat(item[j].N);
             }
 
             if (type === 'BOOL') {
-              if (parsed[i] === 'true' || parsed[i] === true) {
-                parsed[i] = true;
+              if (parsed[j].BOOL === 'true' || parsed[j].BOOL === true) {
+                parsed[j] = true;
               } else {
-                parsed[i] = false;
+                parsed[j] = false;
               }
             }
           }
