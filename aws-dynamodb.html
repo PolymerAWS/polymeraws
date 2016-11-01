@@ -38,6 +38,29 @@ Polymer Web Component for AWS DynamoDB
 
         properties: {
           /**
+           * Conditions to use when requesting data
+           *
+           * This object should contain all attributes with their value and condition.
+           *
+           * The structure of this `Object` is as follows:
+           *
+           * ```javascript
+           * [{
+           *   title: {
+           *     condition: '=',
+           *     value: 'Test Note #1'
+           *   }
+           * }]
+           * ```
+           *
+           * Valid conditions are: `=, <, <=, >, >=, begins_with`
+           */
+          conditions: {
+            type: Array,
+            value: []
+          },
+
+          /**
            * Whether to use consistent reads or not
            *
            * By default the operations will use eventually consistent reads; therefore,
@@ -72,6 +95,17 @@ Polymer Web Component for AWS DynamoDB
           formatData: {
             type: Boolean,
             value: false
+          },
+
+          /**
+           * The secondary index to scan or query
+           *
+           * If this is not specified the query will use the primary index of the
+           * table.
+           */
+          indexName: {
+            type: String,
+            value: ''
           },
 
           /**
@@ -118,7 +152,7 @@ Polymer Web Component for AWS DynamoDB
         },
 
         observers: [
-          '_computeParams(tableName, limit)'
+          '_computeParams(tableName, limit, indexName, conditions)'
         ],
 
         attached: function() {
@@ -163,18 +197,75 @@ Polymer Web Component for AWS DynamoDB
 // @todo: implement
         },
 
-        _computeParams: function(table, limit) {
+        _computeParams: function(table, limit, index, conditions) {
           if (table !== '') {
             this.set('_params', {
               TableName: table,
               Limit: limit,
-              ConsistentRead: this.consistentRead
+              ConsistentRead: this.consistentRead,
             });
+
+            if (index !== '') {
+              this.set('_params.IndexName', index);
+            }
+
+            if (conditions.length > 0) {
+              var computedConditionParams = this._generateConditionParams(conditions);
+              this.set('_params.ExpressionAttributeNames', computedConditionParams.names);
+              this.set('_params.ExpressionAttributeValues', computedConditionParams.values);
+              this.set('_params.KeyConditionExpression', computedConditionParams.expression);
+            }
 
             if (this._isOperationValid(this.operation)) {
               this._getData();
             }
           }
+        },
+
+        _generateConditionParams: function(conditions) {
+          var conditionParams = {
+            names: {},
+            values: {},
+            expression: ''
+          };
+          var key;
+          var name;
+          var value;
+          var condition;
+
+          for (var item in conditions) {
+            condition = conditions[item];
+            key = Object.keys(condition)[0];
+            name = '#' + key;
+            value = ':' + key;
+            conditionParams.names[name] = key;
+
+            // Determine the value type
+            switch (typeof condition[key].value) {
+              case 'array':
+                conditionParams.values[value] = { L: condition[key].value };
+                break;
+              case 'object':
+                conditionParams.values[value] = { M: condition[key].value };
+                break;
+              case 'string':
+                conditionParams.values[value] = { S: condition[key].value.toString() };
+                break;
+              case 'number':
+                conditionParams.values[value] = { N: condition[key].value.toString() };
+                break;
+              case 'boolean':
+                conditionParams.values[value] = { BOOL: condition[key].value };
+                break;
+            }
+
+            conditionParams.expression += name + ' ' + condition[key].condition + ' ' + value + ', ';
+          }
+
+          // Remove the last comma
+          conditionParams.expression = conditionParams.expression.slice(0, -2);
+
+          return conditionParams;
         },
 
         _getData: function() {

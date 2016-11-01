@@ -30,6 +30,12 @@
       </template>
     </test-fixture>
 
+    <test-fixture id="Query">
+      <template>
+        <aws-dynamodb table-name="testTable" operation="query"></aws-dynamodb>
+      </template>
+    </test-fixture>
+
     <script>
       var AWS = {};
 
@@ -163,6 +169,66 @@
                   N: 1
                 }
               }
+            });
+          });
+        });
+
+        suite('query data', function () {
+          setup(function() {
+            AWS.DynamoDB = function DynamoDB() {
+              this.scan = sinon.stub().callsArgWith(1, null, {});
+              this.query = sinon.stub().callsArgWith(1, null, {});
+            };
+            dynamoDbElement = fixture('Query');
+          });
+
+          test('query primary index', function() {
+            dynamoDbElement.set('conditions', [{
+              id: {
+                condition: '=',
+                value: 2
+              }
+            }]);
+
+            expect(dynamoDbElement._dynamoDBRef.query).to.be.calledWith({
+              TableName: 'testTable',
+              Limit: 100,
+              ConsistentRead: false,
+              ExpressionAttributeNames: {
+                '#id': 'id'
+              },
+              ExpressionAttributeValues: {
+                ':id': {
+                  N: '2'
+                }
+              },
+              KeyConditionExpression: '#id = :id'
+            });
+          });
+
+          test('query secondary index', function() {
+            dynamoDbElement.set('indexName', 'title-index');
+            dynamoDbElement.set('conditions', [{
+              title: {
+                condition: '=',
+                value: 'Test Note #2'
+              }
+            }]);
+
+            expect(dynamoDbElement._dynamoDBRef.query).to.be.calledWith({
+              TableName: 'testTable',
+              Limit: 100,
+              ConsistentRead: false,
+              ExpressionAttributeNames: {
+                '#title': 'title'
+              },
+              ExpressionAttributeValues: {
+                ':title': {
+                  S: 'Test Note #2'
+                }
+              },
+              KeyConditionExpression: '#title = :title',
+              IndexName: 'title-index'
             });
           });
         });
