@@ -38,6 +38,21 @@ Polymer Web Component for AWS DynamoDB
 
         properties: {
           /**
+           * Whether to use consistent reads or not
+           *
+           * By default the operations will use eventually consistent reads; therefore,
+           * the result set might not include the changes to data in the table immediatly
+           * before the operation began.
+           *
+           * Note: global secondary indexes do not support consistent reads, so do not
+           * specify consistentRead when querying a global secondary index.
+           */
+          consistentRead: {
+            type: Boolean,
+            value: false
+          },
+
+          /**
            * Operation's response
            *
            * This will be update every time the operation or query changes, changes
@@ -152,7 +167,8 @@ Polymer Web Component for AWS DynamoDB
           if (table !== '') {
             this.set('_params', {
               TableName: table,
-              Limit: limit
+              Limit: limit,
+              ConsistentRead: this.consistentRead
             });
 
             if (this._isOperationValid(this.operation)) {

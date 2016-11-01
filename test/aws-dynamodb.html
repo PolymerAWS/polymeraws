@@ -14,7 +14,7 @@
 
     <test-fixture id="Basic">
       <template>
-        <aws-dynamodb table-name="testTable" limit="1"></aws-dynamodb>
+        <aws-dynamodb table-name="testTable" limit="1" consistent-read></aws-dynamodb>
       </template>
     </test-fixture>
 
@@ -90,7 +90,8 @@
           test('performs a scan', function() {
             expect(dynamoDbElement._dynamoDBRef.scan).to.be.calledWith({
               TableName: 'testTable',
-              Limit: 100
+              Limit: 100,
+              ConsistentRead: false
             });
           });
         });
@@ -108,7 +109,8 @@
             dynamoDbElement.set('operation', 'query');
             expect(dynamoDbElement._dynamoDBRef.query).to.be.calledWith({
               TableName: 'testTable',
-              Limit: 1
+              Limit: 1,
+              ConsistentRead: true
             });
           });
         });
@@ -119,6 +121,14 @@
               this.scan = sinon.stub().callsArgWith(1, null, testData);
             };
             dynamoDbElement = fixture('Basic');
+          });
+
+          test('uses consistent reads', function() {
+            expect(dynamoDbElement._dynamoDBRef.scan).to.be.calledWith({
+              TableName: 'testTable',
+              Limit: 1,
+              ConsistentRead: true
+            });
           });
 
           test('limits the number of returned items to 1', function() {
@@ -147,6 +157,7 @@
             expect(dynamoDbElement._dynamoDBRef.scan).to.be.calledWith({
               TableName: 'testTable',
               Limit: 1,
+              ConsistentRead: true,
               ExclusiveStartKey: {
                 id: {
                   N: 1
