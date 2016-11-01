@@ -166,7 +166,7 @@ Polymer Web Component for AWS DynamoDB
             throw new Error('Operation `' + this.operation + '` is not a valid operation');
           }
 
-          if (this._dynamoDBRef) {
+          if (this._dynamoDBRef && this._params) {
             this._dynamoDBRef[this.operation](
               this._params,
               this._handleResponse.bind(this)
