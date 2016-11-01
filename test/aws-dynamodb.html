@@ -14,7 +14,7 @@
 
     <test-fixture id="Basic">
       <template>
-        <aws-dynamodb table="testTable"></aws-dynamodb>
+        <aws-dynamodb table-name="testTable" limit="1"></aws-dynamodb>
       </template>
     </test-fixture>
 
@@ -24,8 +24,41 @@
       </template>
     </test-fixture>
 
+    <test-fixture id="Format">
+      <template>
+        <aws-dynamodb table-name="testTable" limit="1" format-data></aws-dynamodb>
+      </template>
+    </test-fixture>
+
     <script>
       var AWS = {};
+
+      var testData = {
+        Count: 1,
+        Items: [{
+          id: {
+            N: 1
+          },
+          title: {
+            S: 'Test Note #1'
+          },
+          shared: {
+            BOOL: 'true'
+          },
+          likeCount: {
+            N: 3
+          },
+          content: {
+            S: 'Content of test note #1'
+          }
+        }],
+        LastEvaluatedKey: {
+          id: {
+            N: 1
+          }
+        },
+        ScannedCount: 1
+      };
 
       suite('<aws-dynamodb>', function() {
         var dynamoDbElement;
@@ -49,7 +82,6 @@
           setup(function() {
             AWS.DynamoDB = function DynamoDB() {
               this.scan = sinon.stub().callsArgWith(1, null, {});
-              this.query = sinon.stub().callsArgWith(1, null, {});
             };
             dynamoDbElement = fixture('Empty');
             dynamoDbElement.set('tableName', 'testTable');
@@ -57,19 +89,13 @@
 
           test('performs a scan', function() {
             expect(dynamoDbElement._dynamoDBRef.scan).to.be.calledWith({
-              TableName: 'testTable'
-            });
-          });
-
-          test('performs a query', function() {
-            dynamoDbElement.set('operation', 'query');
-            expect(dynamoDbElement._dynamoDBRef.query).to.be.calledWith({
-              TableName: 'testTable'
+              TableName: 'testTable',
+              Limit: 100
             });
           });
         });
 
-        suite('retrieve data', function() {
+        suite('change operation', function() {
           setup(function() {
             AWS.DynamoDB = function DynamoDB() {
               this.scan = sinon.stub().callsArgWith(1, null, {});
@@ -78,8 +104,74 @@
             dynamoDbElement = fixture('Basic');
           });
 
-          test('parses returned data into a usable format', function() {
-            expect(dynamoDbElement.data).to.be.true;
+          test('performs a query', function() {
+            dynamoDbElement.set('operation', 'query');
+            expect(dynamoDbElement._dynamoDBRef.query).to.be.calledWith({
+              TableName: 'testTable',
+              Limit: 1
+            });
+          });
+        });
+
+        suite('retrieve data', function() {
+          setup(function() {
+            AWS.DynamoDB = function DynamoDB() {
+              this.scan = sinon.stub().callsArgWith(1, null, testData);
+            };
+            dynamoDbElement = fixture('Basic');
+          });
+
+          test('limits the number of returned items to 1', function() {
+            expect(dynamoDbElement.data.length).to.equal(1);
+            expect(dynamoDbElement.data).to.deep.equal([{
+              id: {
+                N: 1
+              },
+              title: {
+                S: 'Test Note #1'
+              },
+              shared: {
+                BOOL: 'true'
+              },
+              likeCount: {
+                N: 3
+              },
+              content: {
+                S: 'Content of test note #1'
+              }
+            }]);
+          });
+
+          test('load next page', function() {
+            dynamoDbElement.nextPage();
+            expect(dynamoDbElement._dynamoDBRef.scan).to.be.calledWith({
+              TableName: 'testTable',
+              Limit: 1,
+              ExclusiveStartKey: {
+                id: {
+                  N: 1
+                }
+              }
+            });
+          });
+        });
+
+        suite('format data', function () {
+          setup(function() {
+            AWS.DynamoDB = function DynamoDB() {
+              this.scan = sinon.stub().callsArgWith(1, null, testData);
+            };
+            dynamoDbElement = fixture('Format');
+          });
+
+          test('formats returned data', function() {
+            expect(dynamoDbElement.data).to.deep.equal([{
+              id: 1,
+              title: 'Test Note #1',
+              shared: true,
+              likeCount: 3,
+              content: 'Content of test note #1'
+            }]);
           });
         });
 

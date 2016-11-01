@@ -209,7 +209,7 @@ Polymer Web Component for AWS DynamoDB
             }
 
             if (type === 'BOOL') {
-              if (parsed[j].BOOL === 'true' || parsed[j].BOOL === true) {
+              if (item[j].BOOL === 'true' || item[j].BOOL === true) {
                 parsed[j] = true;
               } else {
                 parsed[j] = false;
