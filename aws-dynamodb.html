@@ -88,13 +88,17 @@ Polymer Web Component for AWS DynamoDB
             value: ''
           },
 
-          _params: {
-            type: Object
-          },
-
           _dynamoDBRef: {
             type: Object,
             observer: '_getData'
+          },
+
+          _lastEvaluatedKey: {
+            type: Object
+          },
+
+          _params: {
+            type: Object
           }
         },
 
@@ -116,6 +120,25 @@ Polymer Web Component for AWS DynamoDB
         },
 
         /**
+         * Load the next page of results
+         *
+         * There is no previousPage functionality, it is advisable to cache the
+         * previous results locally.
+         *
+         * @return  {Boolean} Boolean being true if the next page will be loaded
+         * and false if there is no next page.
+         */
+        nextPage: function() {
+          if (this._lastEvaluatedKey !== null) {
+            this.set('_params.ExclusiveStartKey', this._lastEvaluatedKey);
+            this._getData();
+            return true;
+          } else {
+            return false;
+          }
+        },
+
+        /**
          * Updates the given record in the table
          *
          * @param   {Number} index The index of the record in the table.
@@ -127,7 +150,7 @@ Polymer Web Component for AWS DynamoDB
 
         _computeParams: function(table, limit) {
           if (table !== '') {
-            this.set('params', {
+            this.set('_params', {
               TableName: table,
               Limit: limit
             });
@@ -145,7 +168,7 @@ Polymer Web Component for AWS DynamoDB
 
           if (this._dynamoDBRef) {
             this._dynamoDBRef[this.operation](
-              this.params,
+              this._params,
               this._handleResponse.bind(this)
             );
           }
@@ -155,6 +178,8 @@ Polymer Web Component for AWS DynamoDB
           if (error) {
             throw new Error('Could not retrieve data from DynamoDB because: ' + error);
           }
+
+          this.set('_lastEvaluatedKey', data.LastEvaluatedKey);
 
           if (this.formatData) {
             for (var i = 0, length = data.Items.length; i < length; i++) {
