@@ -127,6 +127,7 @@
           setup(function() {
             AWS.DynamoDB = function DynamoDB() {
               this.scan = sinon.stub().callsArgWith(1, null, testData);
+              this.query = sinon.stub().callsArgWith(1, null, testData);
             };
             dynamoDbElement = fixture('Basic');
           });
@@ -135,7 +136,6 @@
             expect(dynamoDbElement._dynamoDBRef.scan).to.be.calledWith({
               ConsistentRead: true,
               Limit: 1,
-              ScanIndexForward: true,
               TableName: 'testTable'
             });
           });
@@ -170,15 +170,15 @@
                   N: 1
                 }
               },
-              ScanIndexForward: true,
               Limit: 1,
               TableName: 'testTable'
             });
           });
 
           test('request the results in reverse order', function() {
+            dynamoDbElement.set('operation', 'query');
             dynamoDbElement.set('reverseOrder', true);
-            expect(dynamoDbElement._dynamoDBRef.scan).to.be.calledWith({
+            expect(dynamoDbElement._dynamoDBRef.query).to.be.calledWith({
               TableName: 'testTable',
               Limit: 1,
               ConsistentRead: true,

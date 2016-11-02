@@ -214,7 +214,6 @@ Polymer Web Component for AWS DynamoDB
             this.set('_params', {
               ConsistentRead: this.consistentRead,
               Limit: limit,
-              ScanIndexForward: !traversal,
               TableName: table
             });
 
@@ -289,6 +288,10 @@ Polymer Web Component for AWS DynamoDB
         _getData: function() {
           if (!this._isOperationValid(this.operation)) {
             throw new Error('Operation `' + this.operation + '` is not a valid operation');
+          }
+
+          if (this.operation === 'query') {
+            this.set('_params.ScanIndexForward', !this.reverseOrder);
           }
 
           if (this._dynamoDBRef && this._params) {
