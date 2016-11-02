@@ -14,7 +14,7 @@
 
     <test-fixture id="Basic">
       <template>
-        <aws-dynamodb table-name="testTable" limit="1" consistent-read></aws-dynamodb>
+        <aws-dynamodb table-name="testTable" limit="1" consistent-read auto></aws-dynamodb>
       </template>
     </test-fixture>
 
@@ -26,13 +26,13 @@
 
     <test-fixture id="Format">
       <template>
-        <aws-dynamodb table-name="testTable" limit="1" format-data></aws-dynamodb>
+        <aws-dynamodb table-name="testTable" limit="1" format-data auto></aws-dynamodb>
       </template>
     </test-fixture>
 
     <test-fixture id="Query">
       <template>
-        <aws-dynamodb table-name="testTable" operation="query"></aws-dynamodb>
+        <aws-dynamodb table-name="testTable" operation="query" auto></aws-dynamodb>
       </template>
     </test-fixture>
 
@@ -94,12 +94,31 @@
           });
 
           test('performs a scan', function() {
+            dynamoDbElement.getData();
             expect(dynamoDbElement._dynamoDBRef.scan).to.be.calledWith({
               ConsistentRead: false,
               Limit: 100,
-              ScanIndexForward: true,
               TableName: 'testTable'
             });
+          });
+        });
+
+        suite('does not retrieve data automatically', function() {
+          setup(function() {
+            AWS.DynamoDB = function DynamoDB() {
+              this.scan = sinon.stub().callsArgWith(1, null, {});
+            };
+            dynamoDbElement = fixture('Empty');
+            dynamoDbElement.set('tableName', 'testTable');
+          });
+
+          test('should not perform scan', function() {
+            expect(dynamoDbElement._dynamoDBRef.scan).to.not.be.called;
+          });
+
+          test('should perform scan with function call', function() {
+            dynamoDbElement.getData();
+            expect(dynamoDbElement._dynamoDBRef.scan).to.be.calledOnce;
           });
         });
 

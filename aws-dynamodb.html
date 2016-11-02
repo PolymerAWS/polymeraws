@@ -38,6 +38,14 @@ Polymer Web Component for AWS DynamoDB
 
         properties: {
           /**
+           * If `true`, automatically requests data from DynamoDB when attributes change.
+           */
+          auto: {
+            type: Boolean,
+            value: false
+          },
+
+          /**
            * Conditions to use when requesting data
            *
            * This array should contain all attributes with their value and condition as objects.
@@ -181,6 +189,28 @@ Polymer Web Component for AWS DynamoDB
         },
 
         /**
+         * Requests the data from DynamoDB
+         *
+         * It will be called automatically if the auto attribute is set
+         */
+        getData: function() {
+          if (!this._isOperationValid(this.operation)) {
+            throw new Error('Operation `' + this.operation + '` is not a valid operation');
+          }
+
+          if (this.operation === 'query') {
+            this.set('_params.ScanIndexForward', !this.reverseOrder);
+          }
+
+          if (this._dynamoDBRef && this._params) {
+            this._dynamoDBRef[this.operation](
+              this._params,
+              this._handleResponse.bind(this)
+            );
+          }
+        },
+
+        /**
          * Load the next page of results
          *
          * There is no previousPage functionality, it is advisable to cache the
@@ -286,19 +316,8 @@ Polymer Web Component for AWS DynamoDB
         },
 
         _getData: function() {
-          if (!this._isOperationValid(this.operation)) {
-            throw new Error('Operation `' + this.operation + '` is not a valid operation');
-          }
-
-          if (this.operation === 'query') {
-            this.set('_params.ScanIndexForward', !this.reverseOrder);
-          }
-
-          if (this._dynamoDBRef && this._params) {
-            this._dynamoDBRef[this.operation](
-              this._params,
-              this._handleResponse.bind(this)
-            );
+          if (this.auto) {
+            this.getData();
           }
         },
 
