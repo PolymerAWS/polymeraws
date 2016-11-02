@@ -14,7 +14,7 @@
 
     <test-fixture id="Basic">
       <template>
-        <aws-dynamodb table="testTable"></aws-dynamodb>
+        <aws-dynamodb table-name="testTable" limit="1" consistent-read auto></aws-dynamodb>
       </template>
     </test-fixture>
 
@@ -24,8 +24,47 @@
       </template>
     </test-fixture>
 
+    <test-fixture id="Format">
+      <template>
+        <aws-dynamodb table-name="testTable" limit="1" format-data auto></aws-dynamodb>
+      </template>
+    </test-fixture>
+
+    <test-fixture id="Query">
+      <template>
+        <aws-dynamodb table-name="testTable" operation="query" auto></aws-dynamodb>
+      </template>
+    </test-fixture>
+
     <script>
       var AWS = {};
+
+      var testData = {
+        Count: 1,
+        Items: [{
+          id: {
+            N: 1
+          },
+          title: {
+            S: 'Test Note #1'
+          },
+          shared: {
+            BOOL: 'true'
+          },
+          likeCount: {
+            N: 3
+          },
+          content: {
+            S: 'Content of test note #1'
+          }
+        }],
+        LastEvaluatedKey: {
+          id: {
+            N: 1
+          }
+        },
+        ScannedCount: 1
+      };
 
       suite('<aws-dynamodb>', function() {
         var dynamoDbElement;
@@ -49,27 +88,41 @@
           setup(function() {
             AWS.DynamoDB = function DynamoDB() {
               this.scan = sinon.stub().callsArgWith(1, null, {});
-              this.query = sinon.stub().callsArgWith(1, null, {});
             };
             dynamoDbElement = fixture('Empty');
             dynamoDbElement.set('tableName', 'testTable');
           });
 
           test('performs a scan', function() {
+            dynamoDbElement.getData();
             expect(dynamoDbElement._dynamoDBRef.scan).to.be.calledWith({
-              TableName: 'testTable'
-            });
-          });
-
-          test('performs a query', function() {
-            dynamoDbElement.set('operation', 'query');
-            expect(dynamoDbElement._dynamoDBRef.query).to.be.calledWith({
+              ConsistentRead: false,
+              Limit: 100,
               TableName: 'testTable'
             });
           });
         });
 
-        suite('retrieve data', function() {
+        suite('does not retrieve data automatically', function() {
+          setup(function() {
+            AWS.DynamoDB = function DynamoDB() {
+              this.scan = sinon.stub().callsArgWith(1, null, {});
+            };
+            dynamoDbElement = fixture('Empty');
+            dynamoDbElement.set('tableName', 'testTable');
+          });
+
+          test('should not perform scan', function() {
+            expect(dynamoDbElement._dynamoDBRef.scan).to.not.be.called;
+          });
+
+          test('should perform scan with function call', function() {
+            dynamoDbElement.getData();
+            expect(dynamoDbElement._dynamoDBRef.scan).to.be.calledOnce;
+          });
+        });
+
+        suite('change operation', function() {
           setup(function() {
             AWS.DynamoDB = function DynamoDB() {
               this.scan = sinon.stub().callsArgWith(1, null, {});
@@ -78,8 +131,235 @@
             dynamoDbElement = fixture('Basic');
           });
 
-          test('parses returned data into a usable format', function() {
-            expect(dynamoDbElement.data).to.be.true;
+          test('performs a query', function() {
+            dynamoDbElement.set('operation', 'query');
+            expect(dynamoDbElement._dynamoDBRef.query).to.be.calledWith({
+              ConsistentRead: true,
+              Limit: 1,
+              ScanIndexForward: true,
+              TableName: 'testTable'
+            });
+          });
+        });
+
+        suite('retrieve data', function() {
+          setup(function() {
+            AWS.DynamoDB = function DynamoDB() {
+              this.scan = sinon.stub().callsArgWith(1, null, testData);
+              this.query = sinon.stub().callsArgWith(1, null, testData);
+            };
+            dynamoDbElement = fixture('Basic');
+          });
+
+          test('uses consistent reads', function() {
+            expect(dynamoDbElement._dynamoDBRef.scan).to.be.calledWith({
+              ConsistentRead: true,
+              Limit: 1,
+              TableName: 'testTable'
+            });
+          });
+
+          test('limits the number of returned items to 1', function() {
+            expect(dynamoDbElement.data.length).to.equal(1);
+            expect(dynamoDbElement.data).to.deep.equal([{
+              id: {
+                N: 1
+              },
+              title: {
+                S: 'Test Note #1'
+              },
+              shared: {
+                BOOL: 'true'
+              },
+              likeCount: {
+                N: 3
+              },
+              content: {
+                S: 'Content of test note #1'
+              }
+            }]);
+          });
+
+          test('load next page', function() {
+            dynamoDbElement.nextPage();
+            expect(dynamoDbElement._dynamoDBRef.scan).to.be.calledWith({
+              ConsistentRead: true,
+              ExclusiveStartKey: {
+                id: {
+                  N: 1
+                }
+              },
+              Limit: 1,
+              TableName: 'testTable'
+            });
+          });
+
+          test('request the results in reverse order', function() {
+            dynamoDbElement.set('operation', 'query');
+            dynamoDbElement.set('reverseOrder', true);
+            expect(dynamoDbElement._dynamoDBRef.query).to.be.calledWith({
+              ConsistentRead: true,
+              Limit: 1,
+              ScanIndexForward: false,
+              TableName: 'testTable'
+            });
+          });
+
+          test('applies filter expression to request', function() {
+            dynamoDbElement.set('conditions', [{
+              likeCount: {
+                condition: '>',
+                value: 1
+              }
+            }]);
+            dynamoDbElement.set('filterExpression', '#likeCount > :likeCount');
+            dynamoDbElement.getData();
+            expect(dynamoDbElement._dynamoDBRef.scan).to.be.calledWith({
+              ConsistentRead: true,
+              ExpressionAttributeNames: {
+                '#likeCount': 'likeCount'
+              },
+              ExpressionAttributeValues: {
+                ':likeCount': {
+                  N: '1'
+                }
+              },
+              FilterExpression: '#likeCount > :likeCount',
+              Limit: 1,
+              TableName: 'testTable'
+            });
+          });
+        });
+
+        suite('query data', function () {
+          setup(function() {
+            AWS.DynamoDB = function DynamoDB() {
+              this.scan = sinon.stub().callsArgWith(1, null, {});
+              this.query = sinon.stub().callsArgWith(1, null, {});
+            };
+            dynamoDbElement = fixture('Query');
+          });
+
+          test('query primary index', function() {
+            dynamoDbElement.set('conditions', [{
+              id: {
+                condition: '=',
+                value: 2
+              }
+            }]);
+
+            expect(dynamoDbElement._dynamoDBRef.query).to.be.calledWith({
+              ConsistentRead: false,
+              ExpressionAttributeNames: {
+                '#id': 'id'
+              },
+              ExpressionAttributeValues: {
+                ':id': {
+                  N: '2'
+                }
+              },
+              KeyConditionExpression: '#id = :id',
+              Limit: 100,
+              ScanIndexForward: true,
+              TableName: 'testTable'
+            });
+          });
+
+          test('query secondary index', function() {
+            dynamoDbElement.set('indexName', 'title-index');
+            dynamoDbElement.set('conditions', [{
+              title: {
+                condition: '=',
+                value: 'Test Note #2'
+              }
+            }]);
+
+            expect(dynamoDbElement._dynamoDBRef.query).to.be.calledWith({
+              ConsistentRead: false,
+              ExpressionAttributeNames: {
+                '#title': 'title'
+              },
+              ExpressionAttributeValues: {
+                ':title': {
+                  S: 'Test Note #2'
+                }
+              },
+              IndexName: 'title-index',
+              KeyConditionExpression: '#title = :title',
+              Limit: 100,
+              ScanIndexForward: true,
+              TableName: 'testTable'
+            });
+          });
+
+          test('query with begins_with condition', function() {
+            dynamoDbElement.set('indexName', 'title-index');
+            dynamoDbElement.set('conditions', [{
+              title: {
+                condition: 'begins_with',
+                value: 'Test Note #2'
+              }
+            }]);
+
+            expect(dynamoDbElement._dynamoDBRef.query).to.be.calledWith({
+              ConsistentRead: false,
+              ExpressionAttributeNames: {
+                '#title': 'title'
+              },
+              ExpressionAttributeValues: {
+                ':title': {
+                  S: 'Test Note #2'
+                }
+              },
+              IndexName: 'title-index',
+              KeyConditionExpression: 'begins_with(#title, :title)',
+              Limit: 100,
+              ScanIndexForward: true,
+              TableName: 'testTable'
+            });
+          });
+
+          test('does not set condition if value is empty', function() {
+            dynamoDbElement.set('conditions', [{
+              test: {
+                condition: '='
+              }
+            }]);
+
+            expect(dynamoDbElement._params.KeyConditionExpression).to.be.empty;
+            expect(dynamoDbElement._params.ExpressionAttributeNames).to.be.empty;
+            expect(dynamoDbElement._params.ExpressionAttributeValues).to.be.empty;
+          });
+
+          test('does not set condition if condition is empty', function() {
+            dynamoDbElement.set('conditions', [{
+              test: {
+                value: 'value'
+              }
+            }]);
+
+            expect(dynamoDbElement._params.KeyConditionExpression).to.be.empty;
+            expect(dynamoDbElement._params.ExpressionAttributeNames).to.be.empty;
+            expect(dynamoDbElement._params.ExpressionAttributeValues).to.be.empty;
+          });
+        });
+
+        suite('format data', function () {
+          setup(function() {
+            AWS.DynamoDB = function DynamoDB() {
+              this.scan = sinon.stub().callsArgWith(1, null, testData);
+            };
+            dynamoDbElement = fixture('Format');
+          });
+
+          test('formats returned data', function() {
+            expect(dynamoDbElement.data).to.deep.equal([{
+              id: 1,
+              title: 'Test Note #1',
+              shared: true,
+              likeCount: 3,
+              content: 'Content of test note #1'
+            }]);
           });
         });
 

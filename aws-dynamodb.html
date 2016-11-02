@@ -10,11 +10,6 @@ Polymer Web Component for AWS DynamoDB
     (function () {
       'use strict';
 
-// @todo:
-// - option to override region (because of endpoint)?
-// - add readonly option to prevent writing on binding?
-// - limit and offset
-
       /**
        * The `aws-dynamodb` element is an easy way to retrieve and update
        * AWS DynamoDB data.
@@ -38,24 +33,51 @@ Polymer Web Component for AWS DynamoDB
 
         properties: {
           /**
-           * The name of the DynamoDB Table
-           *
-           * For example: 'notes'
+           * If `true`, automatically requests data from DynamoDB when attributes change.
            */
-          tableName: {
-            type: String,
-            value: ''
+          auto: {
+            type: Boolean,
+            value: false
           },
 
           /**
-           * The operation which is used for getting items from the DynamoDB
+           * Conditions to use when requesting data
            *
-           * The only accepted values are `scan` and `query`
+           * This array should contain all attributes with their value and condition as objects.
+           *
+           * The structure of a `condition` is as follows:
+           *
+           * ```javascript
+           * [{
+           *   title: {
+           *     condition: '=',
+           *     value: 'Test Note #1'
+           *   }
+           * }]
+           * ```
+           *
+           * Valid conditions are: `=, <, <=, >, >=, begins_with`
+           *
+           * Note: `begins_with` does only work for sort keys.
            */
-          operation: {
-            type: String,
-            value: 'scan',
-            observer: '_getData'
+          conditions: {
+            type: Array,
+            value: []
+          },
+
+          /**
+           * Whether to use consistent reads or not
+           *
+           * By default the operations will use eventually consistent reads; therefore,
+           * the result set might not include the changes to data in the table immediatly
+           * before the operation began.
+           *
+           * Note: global secondary indexes do not support consistent reads, so do not
+           * specify consistentRead when querying a global secondary index.
+           */
+          consistentRead: {
+            type: Boolean,
+            value: false
           },
 
           /**
@@ -70,7 +92,19 @@ Polymer Web Component for AWS DynamoDB
           },
 
           /**
-           * Whether data response data should be parsed
+           * The filter expression to add to the request
+           *
+           * Always the key and value in the conditions object
+           *
+           * For more info: [AWS documentation](http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/QueryAndScan.html#FilteringResults)
+           */
+          filterExpression: {
+            type: String,
+            value: ''
+          },
+
+          /**
+           * Whether data response data should be parsed or not
            *
            * If this is true the returned data will not contain the attribute types:
            * `S, N, B, SS, NS, BS, M, L, NULL, BOOL`.
@@ -80,18 +114,74 @@ Polymer Web Component for AWS DynamoDB
             value: false
           },
 
-          _params: {
-            type: Object
+          /**
+           * The secondary index to scan or query
+           *
+           * If this is not specified the query will use the primary index of the
+           * table.
+           */
+          indexName: {
+            type: String,
+            value: ''
+          },
+
+          /**
+           * The maximum number of records to retrieve for a scan or query
+           */
+          limit: {
+            type: Number,
+            value: 100
+          },
+
+          /**
+           * The operation which is used for getting items from the DynamoDB
+           *
+           * The only accepted values are `scan` and `query`.
+           *
+           * Note: if the query operation is used, at least one condition must be set.
+           */
+          operation: {
+            type: String,
+            value: 'scan',
+            observer: '_getData'
+          },
+
+          /**
+           * Specify the order for index traversal
+           *
+           * If `true`, the traversal is performed in descending order.
+           */
+          reverseOrder: {
+            type: Boolean,
+            value: false
+          },
+
+          /**
+           * The name of the DynamoDB Table
+           *
+           * For example: 'notes'
+           */
+          tableName: {
+            type: String,
+            value: ''
           },
 
           _dynamoDBRef: {
             type: Object,
             observer: '_getData'
+          },
+
+          _lastEvaluatedKey: {
+            type: Object
+          },
+
+          _params: {
+            type: Object
           }
         },
 
         observers: [
-          '_computeParams(tableName)'
+          '_computeParams(tableName, limit, reverseOrder, indexName, conditions, filterExpression)'
         ],
 
         attached: function() {
@@ -108,6 +198,47 @@ Polymer Web Component for AWS DynamoDB
         },
 
         /**
+         * Requests the data from DynamoDB
+         *
+         * It will be called automatically if the auto attribute is set
+         */
+        getData: function() {
+          if (!this._isOperationValid(this.operation)) {
+            throw new Error('Operation `' + this.operation + '` is not a valid operation');
+          }
+
+          if (this.operation === 'query') {
+            this.set('_params.ScanIndexForward', !this.reverseOrder);
+          }
+
+          if (this._dynamoDBRef && this._params) {
+            this._dynamoDBRef[this.operation](
+              this._params,
+              this._handleResponse.bind(this)
+            );
+          }
+        },
+
+        /**
+         * Load the next page of results
+         *
+         * There is no previousPage functionality, it is advisable to cache the
+         * previous results locally.
+         *
+         * @return  {Boolean} Boolean being true if the next page will be loaded
+         * and false if there is no next page.
+         */
+        nextPage: function() {
+          if (this._lastEvaluatedKey !== null) {
+            this.set('_params.ExclusiveStartKey', this._lastEvaluatedKey);
+            this._getData();
+            return true;
+          } else {
+            return false;
+          }
+        },
+
+        /**
          * Updates the given record in the table
          *
          * @param   {Number} index The index of the record in the table.
@@ -117,11 +248,31 @@ Polymer Web Component for AWS DynamoDB
 // @todo: implement
         },
 
-        _computeParams: function(table) {
+        _computeParams: function(table, limit, traversal, index, conditions, filter) {
           if (table !== '') {
-            this.set('params', {
+            this.set('_params', {
+              ConsistentRead: this.consistentRead,
+              Limit: limit,
               TableName: table
             });
+
+            if (index !== '') {
+              this.set('_params.IndexName', index);
+            }
+
+            if (conditions.length > 0) {
+              var computedConditionParams = this._generateConditionParams(conditions);
+              this.set('_params.ExpressionAttributeNames', computedConditionParams.names);
+              this.set('_params.ExpressionAttributeValues', computedConditionParams.values);
+
+              if (filter) {
+                this.set('_params.FilterExpression', filter);
+              }
+
+              if (this.operation === 'query') {
+                this.set('_params.KeyConditionExpression', computedConditionParams.expression);
+              }
+            }
 
             if (this._isOperationValid(this.operation)) {
               this._getData();
@@ -129,16 +280,64 @@ Polymer Web Component for AWS DynamoDB
           }
         },
 
-        _getData: function() {
-          if (!this._isOperationValid(this.operation)) {
-            throw new Error('Operation `' + this.operation + '` is not a valid operation');
+        _generateConditionParams: function(conditions) {
+          var conditionParams = {
+            names: {},
+            values: {},
+            expression: ''
+          };
+          var key;
+          var name;
+          var value;
+          var condition;
+
+          for (var item in conditions) {
+            condition = conditions[item];
+            key = Object.keys(condition)[0];
+
+            if (!condition[key].value || !condition[key].condition) {
+              break;
+            }
+
+            name = '#' + key;
+            value = ':' + key;
+            conditionParams.names[name] = key;
+
+            // Determine the value type
+            switch (typeof condition[key].value) {
+              case 'array':
+                conditionParams.values[value] = { L: condition[key].value };
+                break;
+              case 'object':
+                conditionParams.values[value] = { M: condition[key].value };
+                break;
+              case 'string':
+                conditionParams.values[value] = { S: condition[key].value.toString() };
+                break;
+              case 'number':
+                conditionParams.values[value] = { N: condition[key].value.toString() };
+                break;
+              case 'boolean':
+                conditionParams.values[value] = { BOOL: condition[key].value };
+                break;
+            }
+
+            if (condition[key].condition === 'begins_with') {
+              conditionParams.expression += 'begins_with(' + name + ', ' + value + '), ';
+            } else {
+              conditionParams.expression += name + ' ' + condition[key].condition + ' ' + value + ', ';
+            }
           }
 
-          if (this._dynamoDBRef) {
-            this._dynamoDBRef[this.operation](
-              this.params,
-              this._handleResponse.bind(this)
-            );
+          // Remove the last comma
+          conditionParams.expression = conditionParams.expression.slice(0, -2);
+
+          return conditionParams;
+        },
+
+        _getData: function() {
+          if (this.auto) {
+            this.getData();
           }
         },
 
@@ -146,6 +345,8 @@ Polymer Web Component for AWS DynamoDB
           if (error) {
             throw new Error('Could not retrieve data from DynamoDB because: ' + error);
           }
+
+          this.set('_lastEvaluatedKey', data.LastEvaluatedKey);
 
           if (this.formatData) {
             for (var i = 0, length = data.Items.length; i < length; i++) {
@@ -166,19 +367,19 @@ Polymer Web Component for AWS DynamoDB
         _parseItem: function(item) {
           var parsed = {};
 
-          for (var i in item) {
-            var type = Object.keys(item[i])[0];
-            parsed[i] = item[i][type];
+          for (var j in item) {
+            var type = Object.keys(item[j])[0];
+            parsed[j] = item[j][type];
 
             if (type === 'N') {
-              parsed = parseFloat(item[i]);
+              parsed[j] = parseFloat(item[j].N);
             }
 
             if (type === 'BOOL') {
-              if (parsed[i] === 'true' || parsed[i] === true) {
-                parsed[i] = true;
+              if (item[j].BOOL === 'true' || item[j].BOOL === true) {
+                parsed[j] = true;
               } else {
-                parsed[i] = false;
+                parsed[j] = false;
               }
             }
           }
