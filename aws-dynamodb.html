@@ -119,7 +119,9 @@ Polymer Web Component for AWS DynamoDB
           /**
            * The operation which is used for getting items from the DynamoDB
            *
-           * The only accepted values are `scan` and `query`
+           * The only accepted values are `scan` and `query`.
+           *
+           * Note: if the query operation is used, at least one condition must be set.
            */
           operation: {
             type: String,
@@ -236,6 +238,11 @@ Polymer Web Component for AWS DynamoDB
           for (var item in conditions) {
             condition = conditions[item];
             key = Object.keys(condition)[0];
+
+            if (!condition[key].value || !condition[key].condition) {
+              break;
+            }
+
             name = '#' + key;
             value = ':' + key;
             conditionParams.names[name] = key;

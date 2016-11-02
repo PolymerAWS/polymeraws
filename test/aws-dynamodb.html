@@ -231,6 +231,30 @@
               IndexName: 'title-index'
             });
           });
+
+          test('does not set condition if value is empty', function() {
+            dynamoDbElement.set('conditions', [{
+              test: {
+                condition: '='
+              }
+            }]);
+
+            expect(dynamoDbElement._params.KeyConditionExpression).to.be.empty;
+            expect(dynamoDbElement._params.ExpressionAttributeNames).to.be.empty;
+            expect(dynamoDbElement._params.ExpressionAttributeValues).to.be.empty;
+          });
+
+          test('does not set condition if condition is empty', function() {
+            dynamoDbElement.set('conditions', [{
+              test: {
+                value: 'value'
+              }
+            }]);
+
+            expect(dynamoDbElement._params.KeyConditionExpression).to.be.empty;
+            expect(dynamoDbElement._params.ExpressionAttributeNames).to.be.empty;
+            expect(dynamoDbElement._params.ExpressionAttributeValues).to.be.empty;
+          });
         });
 
         suite('format data', function () {
