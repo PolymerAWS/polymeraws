@@ -97,6 +97,18 @@ Polymer Web Component for AWS DynamoDB
           },
 
           /**
+           * The filter expression to add to the request
+           *
+           * Always the key and value in the conditions object
+           *
+           * For more info: [AWS documentation](http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/QueryAndScan.html#FilteringResults)
+           */
+          filterExpression: {
+            type: String,
+            value: ''
+          },
+
+          /**
            * Whether data response data should be parsed or not
            *
            * If this is true the returned data will not contain the attribute types:
@@ -174,7 +186,7 @@ Polymer Web Component for AWS DynamoDB
         },
 
         observers: [
-          '_computeParams(tableName, limit, reverseOrder, indexName, conditions)'
+          '_computeParams(tableName, limit, reverseOrder, indexName, conditions, filterExpression)'
         ],
 
         attached: function() {
@@ -241,7 +253,7 @@ Polymer Web Component for AWS DynamoDB
 // @todo: implement
         },
 
-        _computeParams: function(table, limit, traversal, index, conditions) {
+        _computeParams: function(table, limit, traversal, index, conditions, filter) {
           if (table !== '') {
             this.set('_params', {
               ConsistentRead: this.consistentRead,
@@ -257,7 +269,14 @@ Polymer Web Component for AWS DynamoDB
               var computedConditionParams = this._generateConditionParams(conditions);
               this.set('_params.ExpressionAttributeNames', computedConditionParams.names);
               this.set('_params.ExpressionAttributeValues', computedConditionParams.values);
-              this.set('_params.KeyConditionExpression', computedConditionParams.expression);
+
+              if (filter) {
+                this.set('_params.FilterExpression', filter);
+              }
+
+              if (this.operation === 'query') {
+                this.set('_params.KeyConditionExpression', computedConditionParams.expression);
+              }
             }
 
             if (this._isOperationValid(this.operation)) {
@@ -308,7 +327,11 @@ Polymer Web Component for AWS DynamoDB
                 break;
             }
 
-            conditionParams.expression += name + ' ' + condition[key].condition + ' ' + value + ', ';
+            if (condition[key].condition === 'begins_with') {
+              conditionParams.expression += 'begins_with(' + name + ', ' + value + '), ';
+            } else {
+              conditionParams.expression += name + ' ' + condition[key].condition + ' ' + value + ', ';
+            }
           }
 
           // Remove the last comma

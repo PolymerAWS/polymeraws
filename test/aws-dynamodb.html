@@ -198,10 +198,35 @@
             dynamoDbElement.set('operation', 'query');
             dynamoDbElement.set('reverseOrder', true);
             expect(dynamoDbElement._dynamoDBRef.query).to.be.calledWith({
-              TableName: 'testTable',
-              Limit: 1,
               ConsistentRead: true,
-              ScanIndexForward: false
+              Limit: 1,
+              ScanIndexForward: false,
+              TableName: 'testTable'
+            });
+          });
+
+          test('applies filter expression to request', function() {
+            dynamoDbElement.set('conditions', [{
+              likeCount: {
+                condition: '>',
+                value: 1
+              }
+            }]);
+            dynamoDbElement.set('filterExpression', '#likeCount > :likeCount');
+            dynamoDbElement.getData();
+            expect(dynamoDbElement._dynamoDBRef.scan).to.be.calledWith({
+              ConsistentRead: true,
+              ExpressionAttributeNames: {
+                '#likeCount': 'likeCount'
+              },
+              ExpressionAttributeValues: {
+                ':likeCount': {
+                  N: '1'
+                }
+              },
+              FilterExpression: '#likeCount > :likeCount',
+              Limit: 1,
+              TableName: 'testTable'
             });
           });
         });
@@ -261,6 +286,33 @@
               },
               IndexName: 'title-index',
               KeyConditionExpression: '#title = :title',
+              Limit: 100,
+              ScanIndexForward: true,
+              TableName: 'testTable'
+            });
+          });
+
+          test('query with begins_with condition', function() {
+            dynamoDbElement.set('indexName', 'title-index');
+            dynamoDbElement.set('conditions', [{
+              title: {
+                condition: 'begins_with',
+                value: 'Test Note #2'
+              }
+            }]);
+
+            expect(dynamoDbElement._dynamoDBRef.query).to.be.calledWith({
+              ConsistentRead: false,
+              ExpressionAttributeNames: {
+                '#title': 'title'
+              },
+              ExpressionAttributeValues: {
+                ':title': {
+                  S: 'Test Note #2'
+                }
+              },
+              IndexName: 'title-index',
+              KeyConditionExpression: 'begins_with(#title, :title)',
               Limit: 100,
               ScanIndexForward: true,
               TableName: 'testTable'
