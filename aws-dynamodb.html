@@ -130,6 +130,16 @@ Polymer Web Component for AWS DynamoDB
           },
 
           /**
+           * Specify the order for index traversal
+           *
+           * If `true`, the traversal is performed in descending order.
+           */
+          reverseOrder: {
+            type: Boolean,
+            value: false
+          },
+
+          /**
            * The name of the DynamoDB Table
            *
            * For example: 'notes'
@@ -154,7 +164,7 @@ Polymer Web Component for AWS DynamoDB
         },
 
         observers: [
-          '_computeParams(tableName, limit, indexName, conditions)'
+          '_computeParams(tableName, limit, reverseOrder, indexName, conditions)'
         ],
 
         attached: function() {
@@ -199,12 +209,13 @@ Polymer Web Component for AWS DynamoDB
 // @todo: implement
         },
 
-        _computeParams: function(table, limit, index, conditions) {
+        _computeParams: function(table, limit, traversal, index, conditions) {
           if (table !== '') {
             this.set('_params', {
-              TableName: table,
-              Limit: limit,
               ConsistentRead: this.consistentRead,
+              Limit: limit,
+              ScanIndexForward: !traversal,
+              TableName: table
             });
 
             if (index !== '') {

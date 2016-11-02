@@ -95,9 +95,10 @@
 
           test('performs a scan', function() {
             expect(dynamoDbElement._dynamoDBRef.scan).to.be.calledWith({
-              TableName: 'testTable',
+              ConsistentRead: false,
               Limit: 100,
-              ConsistentRead: false
+              ScanIndexForward: true,
+              TableName: 'testTable'
             });
           });
         });
@@ -114,9 +115,10 @@
           test('performs a query', function() {
             dynamoDbElement.set('operation', 'query');
             expect(dynamoDbElement._dynamoDBRef.query).to.be.calledWith({
-              TableName: 'testTable',
+              ConsistentRead: true,
               Limit: 1,
-              ConsistentRead: true
+              ScanIndexForward: true,
+              TableName: 'testTable'
             });
           });
         });
@@ -131,9 +133,10 @@
 
           test('uses consistent reads', function() {
             expect(dynamoDbElement._dynamoDBRef.scan).to.be.calledWith({
-              TableName: 'testTable',
+              ConsistentRead: true,
               Limit: 1,
-              ConsistentRead: true
+              ScanIndexForward: true,
+              TableName: 'testTable'
             });
           });
 
@@ -161,14 +164,25 @@
           test('load next page', function() {
             dynamoDbElement.nextPage();
             expect(dynamoDbElement._dynamoDBRef.scan).to.be.calledWith({
-              TableName: 'testTable',
-              Limit: 1,
               ConsistentRead: true,
               ExclusiveStartKey: {
                 id: {
                   N: 1
                 }
-              }
+              },
+              ScanIndexForward: true,
+              Limit: 1,
+              TableName: 'testTable'
+            });
+          });
+
+          test('request the results in reverse order', function() {
+            dynamoDbElement.set('reverseOrder', true);
+            expect(dynamoDbElement._dynamoDBRef.scan).to.be.calledWith({
+              TableName: 'testTable',
+              Limit: 1,
+              ConsistentRead: true,
+              ScanIndexForward: false
             });
           });
         });
@@ -191,8 +205,6 @@
             }]);
 
             expect(dynamoDbElement._dynamoDBRef.query).to.be.calledWith({
-              TableName: 'testTable',
-              Limit: 100,
               ConsistentRead: false,
               ExpressionAttributeNames: {
                 '#id': 'id'
@@ -202,7 +214,10 @@
                   N: '2'
                 }
               },
-              KeyConditionExpression: '#id = :id'
+              KeyConditionExpression: '#id = :id',
+              Limit: 100,
+              ScanIndexForward: true,
+              TableName: 'testTable'
             });
           });
 
@@ -216,8 +231,6 @@
             }]);
 
             expect(dynamoDbElement._dynamoDBRef.query).to.be.calledWith({
-              TableName: 'testTable',
-              Limit: 100,
               ConsistentRead: false,
               ExpressionAttributeNames: {
                 '#title': 'title'
@@ -227,8 +240,11 @@
                   S: 'Test Note #2'
                 }
               },
+              IndexName: 'title-index',
               KeyConditionExpression: '#title = :title',
-              IndexName: 'title-index'
+              Limit: 100,
+              ScanIndexForward: true,
+              TableName: 'testTable'
             });
           });
 
