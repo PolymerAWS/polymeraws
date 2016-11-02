@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/gjdenhertog/polymeraws.svg?branch=master)](https://travis-ci.org/gjdenhertog/polymeraws)
+
+
 ## \<aws-app\>
 
 The aws-app element is used for initializing and configuring your
