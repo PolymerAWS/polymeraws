@@ -9,6 +9,35 @@ The aws-app element is used for initializing and configuring your
 connection to AWS.
 
 
+## \<aws-cognito\>
+
+The `aws-cognito` element is a wrapper around the AWS Cognito service. It
+notifies successful authentication and provides user information.
+
+Example usage:
+
+```html
+<aws-app
+    region="eu-west-1">
+</aws-app>
+<aws-cognito
+    id="cognito"
+    user="{{user}}"
+    provider="google"
+    on-error="handleError">
+</aws-cognito>
+```
+
+The `aws-app` element initializes `AWS` in `aws-cognito`.
+
+JavaScript sign-in calls can then be made to the `aws-cognito` object
+to attempt authentication, e.g.:
+
+```javascript
+this.$.cognito.signIn();
+```
+
+
 ## \<aws-dynamodb\>
 
 The `aws-dynamodb` element is an easy way to interact with a AWS DynamoDB
