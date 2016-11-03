@@ -1,0 +1,38 @@
+{
+  "name": "aws-app",
+  "authors": [
+    "Joachim den Hertog"
+  ],
+  "description": "Polymer Web Components for AWS",
+  "keywords": [
+    "web-component",
+    "polymer",
+    "aws"
+  ],
+  "main": "polymeraws.html",
+  "homepage": "https://github.com/gjdenhertog/polymeraws",
+  "ignore": [
+    "/.*",
+    "/test/"
+  ],
+  "dependencies": {
+    "polymer": "Polymer/polymer#^1.4.0",
+    "aws-sdk": "aws-sdk-js#^2.6.11"
+  },
+  "devDependencies": {
+    "iron-component-page": "PolymerElements/iron-component-page#^1.0.0",
+    "iron-demo-helpers": "PolymerElements/iron-demo-helpers#^1.0.0",
+    "web-component-tester": "^4.0.0",
+    "webcomponentsjs": "webcomponents/webcomponentsjs#^0.7.0"
+  },
+  "_release": "5ff4ca445b",
+  "_resolution": {
+    "type": "branch",
+    "branch": "master",
+    "commit": "5ff4ca445b2e01f58cb876dc18561856fc3fcc13"
+  },
+  "_source": "git://github.com/gjdenhertog/polymeraws.git",
+  "_target": "master",
+  "_originalSource": "gjdenhertog/polymeraws",
+  "_direct": true
+}
