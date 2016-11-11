@@ -115,21 +115,31 @@ console.log(error);
         },
 
         userPoolChangePassword: function(oldPassword, newPassword) {
-          this._cognitoUser.changePassword(oldPassword, newPassword, function(err, result) {
-            if (err) {
-              console.log(err);
-              return;
-            }
+          this._cognitoUser.changePassword(
+            oldPassword,
+            newPassword,
+            this._userPoolChangePasswordResponse.bind(this)
+          );
+        },
 
-            console.log('call result:', result);
-          });
+        _userPoolChangePasswordResponse: function(error, result) {
+          if (error) {
+console.log(error);
+            this.fire('password-change-failed', error);
+            return;
+          }
+
+console.log('call result:', result);
+          this.fire('password-changed');
         },
 
         _createUserPoolIdentityProvider: function(poolId, clientId) {
-          this._userPool = new AWSCognito.CognitoIdentityServiceProvider.CognitoUserPool({
-            UserPoolId: poolId,
-            ClientId: clientId
-          });
+          if (poolId && clientId) {
+            this._userPool = new AWSCognito.CognitoIdentityServiceProvider.CognitoUserPool({
+              UserPoolId: poolId,
+              ClientId: clientId
+            });
+          }
         }
       });
     })();
