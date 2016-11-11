@@ -1,0 +1,40 @@
+<!doctype html>
+
+<html>
+  <head>
+    <title>aws-lambda tests</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1, user-scalable=yes">
+    <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
+    <script src="../../web-component-tester/browser.js"></script>
+
+    <link rel="import" href="../aws-cognito.html">
+  </head>
+  <body>
+
+    <test-fixture id="Basic">
+      <template>
+        <aws-cognito></aws-cognito>
+      </template>
+    </test-fixture>
+
+    <script>
+      var AWS = {};
+
+      suite('<aws-cognito>', function() {
+        var cognitoElement;
+
+        suite('attached', function() {
+          setup(function() {
+            AWS.CognitoIdentity = sinon.stub();
+            cognitoElement = fixture('Basic');
+          });
+
+          test.skip('constructs a service interface object', function() {
+            expect(AWS.CognitoIdentity).to.be.calledOnce;
+          });
+        });
+      });
+    </script>
+  </body>
+</html>

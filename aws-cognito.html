@@ -1,0 +1,120 @@
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="aws-cognito-script.html">
+
+<!--
+`aws-cognito`
+Polymer Web Component for AWS Cognito
+-->
+
+<dom-module id="aws-cognito">
+  <script>
+    (function () {
+      'use strict';
+
+      /**
+       * The `aws-cognito` element is a wrapper around the AWS Cognito service. It
+       * notifies successful authentication and provides user information.
+       *
+       * Example usage:
+       *
+       * ```html
+       * <aws-app
+       *     region="eu-west-1">
+       * </aws-app>
+       * <aws-cognito
+       *     id="cognito"
+       *     user="{{user}}"
+       *     provider="google"
+       *     on-error="handleError">
+       * </aws-cognito>
+       * ```
+       *
+       * The `aws-app` element initializes `AWS` in `aws-cognito`.
+       *
+       * JavaScript sign-in calls can then be made to the `aws-cognito` object
+       * to attempt authentication, e.g.:
+       *
+       * ```javascript
+       * this.$.cognito.signIn();
+       * ```
+       */
+      Polymer({
+        is: 'aws-cognito',
+
+        properties: {
+          userPoolId: {
+            type: String,
+            value: ''
+          },
+          userPoolClientId: {
+            type: String,
+            value: ''
+          },
+          identityPoolId: {
+            type: String,
+            observer: '_authenticate'
+          },
+          signedIn: Boolean,
+          _userPool: Object
+        },
+
+        observers: [
+          '_createUserPoolIdentityProvider(userPoolId, userPoolClientId)'
+        ],
+
+        // attached: function() {
+          // this._cognitoRef = new AWS.CognitoIdentity();
+        // }
+
+        userPoolSignIn: function(username, password) {
+          if (!this._userPool) {
+            throw new Error('no user pool');
+          }
+
+          var authenticationDetails = new AWSCognito.CognitoIdentityServiceProvider.AuthenticationDetails({
+            Username: username,
+            Password: password
+          });
+
+          var cognitoUser = new AWSCognito.CognitoIdentityServiceProvider.CognitoUser({
+            Username: username,
+            Pool: this._userPool
+          });
+
+          cognitoUser.authenticateUser(authenticationDetails, {
+            onSuccess: function(result) {
+console.log('access token + ' + result.getAccessToken().getJwtToken());
+              // AWS.config.credentials = new AWS.CognitoIdentityCredentials({
+              //   identityPoolId: this.identityPoolId,
+              //   Logins: {
+              //     'cognito-idp.<region>.amazonaws.com/<USER_POOL_ID>': result.getIdToken().getJwtToken()
+              //   }
+              // });
+            },
+            onFailure: function(err) {
+              alert(err);
+            },
+            mfaRequired: function(codeDeliveryDetails) {
+              // cognitoUser.sendMFACode(mfaCode, this);
+            },
+            newPasswordRequired: function(userAttributes, requiredAttributes) {
+              this.fire('new-password-required');
+            }
+          });
+        },
+
+// @todo: does this work for resets?
+        userPoolNewPassword: function(newPassword) {
+          cognitoUser.completeNewPasswordChallenge(newPassword, {}, this);
+        },
+
+        _createUserPoolIdentityProvider: function(poolId, clientId) {
+          this._userPool = new AWSCognito.CognitoIdentityServiceProvider.CognitoUserPool({
+            UserPoolId: poolId,
+            ClientId: clientId
+          });
+        }
+      });
+    })();
+  </script>
+</dom-module>
