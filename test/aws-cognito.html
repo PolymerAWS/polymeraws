@@ -18,8 +18,18 @@
       </template>
     </test-fixture>
 
+    <test-fixture id="UserPool">
+      <template>
+        <aws-cognito
+          user-pool-id="userPoolId"
+          user-pool-client-id="userPoolClientId">
+        </aws-cognito>
+      </template>
+    </test-fixture>
+
     <script>
       var AWS = {};
+      var AWSCognito = {};
 
       suite('<aws-cognito>', function() {
         var cognitoElement;
@@ -32,6 +42,79 @@
 
           test.skip('constructs a service interface object', function() {
             expect(AWS.CognitoIdentity).to.be.calledOnce;
+          });
+        });
+
+        suite('user pool', function() {
+          setup(function() {
+            AWSCognito = {
+              CognitoIdentityServiceProvider: {
+                CognitoUserPool: sinon.stub(),
+                AuthenticationDetails: sinon.stub(),
+                CognitoUser: sinon.stub()
+              }
+            };
+            cognitoElement = fixture('UserPool');
+          });
+
+          suite('initialization', function() {
+            test('constructs an identitiy provider', function() {
+              expect(AWSCognito.CognitoIdentityServiceProvider.CognitoUserPool).to.be.calledWith({
+                UserPoolId: 'userPoolId',
+                ClientId: 'userPoolClientId'
+              });
+            });
+          });
+
+          suite('unauthenticated', function() {
+            test.skip('sign up', function() {
+
+            });
+
+            test('sign in with new password required', function() {
+              AWSCognito.CognitoIdentityServiceProvider.CognitoUser = sinon.stub().returns({
+                authenticateUser: sinon.stub()
+              });
+              cognitoElement.userPoolSignIn('username', 'password');
+              expect(AWSCognito.CognitoIdentityServiceProvider.AuthenticationDetails).to.be.calledWith({
+                Username: 'username',
+                Password: 'password'
+              });
+            });
+
+            test.skip('sign in with password reset required', function() {
+
+            });
+
+            test.skip('sign in with multi factor authentication', function() {
+
+            });
+
+            test.skip('resend multi factor authentication code', function() {
+
+            });
+
+            test.skip('sign in', function() {
+
+            });
+
+            test.skip('forgot password', function() {
+
+            });
+          });
+
+          suite('authenticated', function() {
+            test.skip('get current user', function() {
+
+            });
+
+            test.skip('change password', function() {
+
+            });
+
+            test.skip('sign out', function() {
+
+            });
           });
         });
       });
