@@ -76,12 +76,12 @@ Polymer Web Component for AWS Cognito
             Password: password
           });
 
-          var cognitoUser = new AWSCognito.CognitoIdentityServiceProvider.CognitoUser({
+          this._cognitoUser = new AWSCognito.CognitoIdentityServiceProvider.CognitoUser({
             Username: username,
             Pool: this._userPool
           });
 
-          cognitoUser.authenticateUser(authenticationDetails, {
+          this._cognitoUser.authenticateUser(authenticationDetails, {
             onSuccess: function(result) {
 console.log('access token + ' + result.getAccessToken().getJwtToken());
               // AWS.config.credentials = new AWS.CognitoIdentityCredentials({
@@ -91,21 +91,38 @@ console.log('access token + ' + result.getAccessToken().getJwtToken());
               //   }
               // });
             },
-            onFailure: function(err) {
-              alert(err);
-            },
+            onFailure: this._handleAuthenticationError.bind(this),
             mfaRequired: function(codeDeliveryDetails) {
               // cognitoUser.sendMFACode(mfaCode, this);
             },
-            newPasswordRequired: function(userAttributes, requiredAttributes) {
-              this.fire('new-password-required');
-            }
+            newPasswordRequired: this._newPasswordRequired.bind(this)
           });
         },
 
-// @todo: does this work for resets?
+        _handleAuthenticationError: function(error) {
+console.log(error);
+          if (error.code === 'PasswordResetRequiredException') {
+            this.fire('password-reset-required');
+          }
+        },
+
+        _newPasswordRequired: function(userAttributes, requiredAttributes) {
+          this.fire('new-password-required');
+        },
+
         userPoolNewPassword: function(newPassword) {
-          cognitoUser.completeNewPasswordChallenge(newPassword, {}, this);
+          this._cognitoUser.completeNewPasswordChallenge(newPassword, {}, this);
+        },
+
+        userPoolChangePassword: function(oldPassword, newPassword) {
+          this._cognitoUser.changePassword(oldPassword, newPassword, function(err, result) {
+            if (err) {
+              console.log(err);
+              return;
+            }
+
+            console.log('call result:', result);
+          });
         },
 
         _createUserPoolIdentityProvider: function(poolId, clientId) {
