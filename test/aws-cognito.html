@@ -22,13 +22,23 @@
       <template>
         <aws-cognito
           user-pool-id="userPoolId"
-          user-pool-client-id="userPoolClientId">
+          user-pool-client-id="userPoolClientId"
+          identity-pool-id="identityPoolId"
+          region="eu-west-1">
         </aws-cognito>
       </template>
     </test-fixture>
 
     <script>
-      var AWS = {};
+      var AWS = {
+        CognitoIdentityCredentials: function(configuration) {
+          if (configuration.identityPoolId === 'identityPoolId' && configuration.Logins['cognito-idp.eu-west-1.amazonaws.com/userPoolId'] === '123ABC') {
+            return {success: true};
+          }
+          return false;
+        },
+        config: {}
+      };
       var AWSCognito = {};
 
       suite('<aws-cognito>', function() {
@@ -49,7 +59,25 @@
           setup(function() {
             AWSCognito = {
               CognitoIdentityServiceProvider: {
-                CognitoUserPool: sinon.stub(),
+                CognitoUserPool: sinon.stub().returns({
+                  signUp: function(username, password, attributeList, discard, callback) {
+                    var attributeListContent = [{
+                      Name: 'email',
+                      Value: 'test@test.com'
+                    },{
+                      Name: 'phone_number',
+                      Value: '+15555555555'
+                    }];
+                    if (username === 'username' && password === 'password' && JSON.stringify(attributeList) === JSON.stringify(attributeListContent)) {
+                      callback(null, true);
+                    } else {
+                      throw new Error('Data is incorrect');
+                    }
+                  },
+                  getCurrentUser: function() {
+                    return null;
+                  }
+                }),
                 AuthenticationDetails: sinon.stub(),
                 CognitoUser: sinon.stub()
               }
@@ -67,14 +95,123 @@
           });
 
           suite('unauthenticated', function() {
-            test.skip('sign up', function() {
+            test('sign up', function(done) {
+              // cognitoElement._userPool = sinon.stub();
+              AWSCognito.CognitoIdentityServiceProvider.CognitoUserAttribute = sinon.stub();
+              AWSCognito.CognitoIdentityServiceProvider.CognitoUserAttribute.onCall(0).returns({
+                Name: 'email',
+                Value: 'test@test.com'
+              });
+              AWSCognito.CognitoIdentityServiceProvider.CognitoUserAttribute.onCall(1).returns({
+                Name: 'phone_number',
+                Value: '+15555555555'
+              });
+              cognitoElement.addEventListener('signed-up', function() {
+                done();
+              });
 
+              var attributes = {
+                email: 'test@test.com',
+                phone_number: '+15555555555'
+              };
+              cognitoElement.userPoolSignUp('username', 'password', attributes);
             });
 
-            test('sign in with new password required', function() {
+            test('sign in with new password required', function(done) {
               AWSCognito.CognitoIdentityServiceProvider.CognitoUser = sinon.stub().returns({
-                authenticateUser: sinon.stub()
+                authenticateUser: function(authenticationDetails, callback) {
+                  callback.newPasswordRequired();
+                },
+                completeNewPasswordChallenge: function(newPassword, attributes, callback) {
+                  if (newPassword === 'password') {
+                    callback(null, {
+                      getIdToken: function() {
+                        return {
+                          getJwtToken: function() {
+                            return '123ABC';
+                          }
+                        }
+                      }
+                    });
+                  }
+                }
               });
+              cognitoElement.addEventListener('new-password-required', function() {
+                cognitoElement.userPoolNewPassword('password');
+                expect(cognitoElement.signedIn).to.be.false;
+              });
+              cognitoElement.addEventListener('new-password-set', function() {
+                expect(cognitoElement.signedIn).to.be.true;
+                done();
+              });
+
+              cognitoElement.userPoolSignIn('username', 'password');
+            });
+
+            test('sign in with password reset required', function(done) {
+              AWSCognito.CognitoIdentityServiceProvider.CognitoUser = sinon.stub().returns({
+                authenticateUser: function(authenticationDetails, callback) {
+                  callback.onFailure({
+                    code: 'PasswordResetRequiredException'
+                  });
+                },
+                changePassword: function(oldPassword, newPassword, callback) {
+                  if (oldPassword === 'oldPassword' && newPassword === 'newPassword') {
+                    callback(null, {
+                      getIdToken: function() {
+                        return {
+                          getJwtToken: function() {
+                            return '123ABC';
+                          }
+                        }
+                      }
+                    });
+                  }
+                }
+              });
+              cognitoElement.addEventListener('password-reset-required', function() {
+                cognitoElement.userPoolChangePassword('oldPassword', 'newPassword');
+                expect(cognitoElement.signedIn).to.be.false;
+              });
+              cognitoElement.addEventListener('password-changed', function() {
+                expect(cognitoElement.signedIn).to.be.true;
+                done();
+              });
+
+              cognitoElement.userPoolSignIn('username', 'password');
+            });
+
+            test('sign in with multi factor authentication', function(done) {
+              AWSCognito.CognitoIdentityServiceProvider.CognitoUser = sinon.stub().returns({
+                authenticateUser: function(authenticationDetails, callback) {
+                  callback.mfaRequired({});
+                }
+              });
+              cognitoElement.addEventListener('mfa-required', function() {
+                done();
+              });
+
+              cognitoElement.userPoolSignIn('username', 'password');
+            });
+
+            test('sign in', function(done) {
+              AWSCognito.CognitoIdentityServiceProvider.CognitoUser = sinon.stub().returns({
+                authenticateUser: function(authencationDetails, callback) {
+                  callback.onSuccess({
+                    getIdToken: function() {
+                      return {
+                        getJwtToken: function() {
+                          return '123ABC';
+                        }
+                      }
+                    }
+                  });
+                }
+              });
+              cognitoElement.addEventListener('signed-in-changed', function(e) {
+                done();
+              });
+
               cognitoElement.userPoolSignIn('username', 'password');
               expect(AWSCognito.CognitoIdentityServiceProvider.AuthenticationDetails).to.be.calledWith({
                 Username: 'username',
@@ -82,38 +219,103 @@
               });
             });
 
-            test.skip('sign in with password reset required', function() {
+            test('forgot password', function(done) {
+              AWSCognito.CognitoIdentityServiceProvider.CognitoUser = sinon.stub().returns({
+                forgotPassword: function(callback) {
+                  callback.inputVerificationCode({
+                    CodeDeliveryDetails: {
+                      ObjectAttributeName: 'email',
+                      DeliveryMedium: 'EMAIL',
+                      Destination: 't***@t***.com'
+                    }
+                  });
+                }
+              });
+              cognitoElement.addEventListener('password-reset-code-sent', function(e) {
+                expect(e.detail).to.deep.equal({
+                  ObjectAttributeName: 'email',
+                  DeliveryMedium: 'EMAIL',
+                  Destination: 't***@t***.com'
+                });
 
-            });
+                cognitoElement._cognitoUser = {
+                  confirmPassword: sinon.stub()
+                };
+                cognitoElement.userPoolConfirmPassword('verificationCode', 'newPassword');
+                expect(cognitoElement._cognitoUser.confirmPassword).to.be.calledWith(
+                  'verificationCode', 'newPassword'
+                );
+                done();
+              });
 
-            test.skip('sign in with multi factor authentication', function() {
-
-            });
-
-            test.skip('resend multi factor authentication code', function() {
-
-            });
-
-            test.skip('sign in', function() {
-
-            });
-
-            test.skip('forgot password', function() {
-
+              cognitoElement.userPoolForgotPassword('username');
             });
           });
 
           suite('authenticated', function() {
-            test.skip('get current user', function() {
-
+            setup(function() {
+              AWSCognito.CognitoIdentityServiceProvider.CognitoUser = sinon.stub().returns({
+                authenticateUser: function(authencationDetails, callback) {
+                  callback.onSuccess({
+                    getIdToken: function() {
+                      return {
+                        getJwtToken: function() {
+                          return '123ABC';
+                        }
+                      }
+                    }
+                  });
+                },
+                signOut: sinon.stub()
+              });
+              cognitoElement.userPoolSignIn('username', 'password');
             });
 
-            test.skip('change password', function() {
-
+            test('get cognito credentials', function() {
+              expect(AWS.config.credentials).to.deep.equal({
+                success: true
+              });
             });
 
-            test.skip('sign out', function() {
+            test('sign out', function() {
+              expect(cognitoElement.signedIn).to.be.true;
+              cognitoElement.userPoolSignOut();
+              expect(cognitoElement.signedIn).to.be.false;
+            });
+          });
 
+          suite('session', function() {
+            setup(function() {
+              AWSCognito = {
+                CognitoIdentityServiceProvider: {
+                  CognitoUserPool: sinon.stub().returns({
+                    getCurrentUser: function() {
+                      return {
+                        getSession: function(callback) {
+                          callback(null, {
+                            getIdToken: function() {
+                              return {
+                                getJwtToken: function() {
+                                  return '123ABC';
+                                }
+                              };
+                            },
+                            isValid: function() {
+                              return true;
+                            }
+                          })
+                        }
+                      };
+                    }
+                  })
+                }
+              };
+              cognitoElement = fixture('UserPool');
+            });
+
+            test('get the user from local storage', function() {
+              expect(cognitoElement._cognitoUser).is.not.undefined;
+              expect(cognitoElement.signedIn).to.be.true;
             });
           });
         });

@@ -54,7 +54,13 @@ Polymer Web Component for AWS Cognito
             type: String,
             observer: '_authenticate'
           },
-          signedIn: Boolean,
+          signedIn: {
+            type: Boolean,
+            notify: true,
+            readonly: true,
+            value: false
+          },
+          region: String,
           _userPool: Object
         },
 
@@ -65,6 +71,26 @@ Polymer Web Component for AWS Cognito
         // attached: function() {
           // this._cognitoRef = new AWS.CognitoIdentity();
         // }
+
+        userPoolSignUp: function(username, password, attributes) {
+          var attribute, attributeList = [];
+          for (attribute in attributes) {
+            attributeList.push(
+              new AWSCognito.CognitoIdentityServiceProvider.CognitoUserAttribute({
+                Name: attribute,
+                Value: attributes[attribute]
+              })
+            );
+          }
+
+          this._userPool.signUp(
+            username,
+            password,
+            attributeList,
+            true,
+            this._userPoolSignedUp.bind(this)
+          );
+        },
 
         userPoolSignIn: function(username, password) {
           if (!this._userPool) {
@@ -82,25 +108,39 @@ Polymer Web Component for AWS Cognito
           });
 
           this._cognitoUser.authenticateUser(authenticationDetails, {
-            onSuccess: function(result) {
-console.log('access token + ' + result.getAccessToken().getJwtToken());
-              // AWS.config.credentials = new AWS.CognitoIdentityCredentials({
-              //   identityPoolId: this.identityPoolId,
-              //   Logins: {
-              //     'cognito-idp.<region>.amazonaws.com/<USER_POOL_ID>': result.getIdToken().getJwtToken()
-              //   }
-              // });
-            },
+            onSuccess: this._userPoolSignedIn.bind(this),
             onFailure: this._handleAuthenticationError.bind(this),
-            mfaRequired: function(codeDeliveryDetails) {
-              // cognitoUser.sendMFACode(mfaCode, this);
-            },
+            mfaRequired: this._mfaRequired.bind(this),
             newPasswordRequired: this._newPasswordRequired.bind(this)
           });
         },
 
+        userPoolSignOut: function() {
+          if (this.signedIn && this._cognitoUser) {
+            this._cognitoUser.signOut();
+            this.set('signedIn', false);
+          }
+        },
+
+        _userPoolSignedUp: function (error, result) {
+          if (error) {
+            this.fire('sign-up-failed', error);
+            return;
+          }
+
+          this.fire('signed-up', result);
+        },
+
+        _userPoolSignedIn: function(result) {
+          this.set('signedIn', true);
+          this._setCognitoCredentials(result.getIdToken().getJwtToken());
+        },
+
+        _requestVerificationCode: function(data) {
+          this.fire('password-reset-code-sent', data.CodeDeliveryDetails);
+        },
+
         _handleAuthenticationError: function(error) {
-console.log(error);
           if (error.code === 'PasswordResetRequiredException') {
             this.fire('password-reset-required');
           }
@@ -110,8 +150,41 @@ console.log(error);
           this.fire('new-password-required');
         },
 
+        _mfaRequired: function(codeDeliveryDetails) {
+          this.fire('mfa-required', codeDeliveryDetails);
+        },
+
+        /**
+         * On success: fire:
+ObjectAttributeName: "email"
+DeliveryMedium: "EMAIL"
+Destination: "j***@r***.com"
+         */
+        userPoolForgotPassword: function(username) {
+          if (!this._userPool) {
+            throw new Error('no user pool');
+          }
+
+          this._cognitoUser = new AWSCognito.CognitoIdentityServiceProvider.CognitoUser({
+            Username: username,
+            Pool: this._userPool
+          });
+
+          this._cognitoUser.forgotPassword({
+            inputVerificationCode: this._requestVerificationCode.bind(this)
+          });
+        },
+
+        userPoolConfirmPassword: function(verficationCode, newPassword) {
+          this._cognitoUser.confirmPassword(verficationCode, newPassword);
+        },
+
         userPoolNewPassword: function(newPassword) {
-          this._cognitoUser.completeNewPasswordChallenge(newPassword, {}, this);
+          this._cognitoUser.completeNewPasswordChallenge(
+            newPassword,
+            {},
+            this._userPoolNewPasswordResponse.bind(this)
+          );
         },
 
         userPoolChangePassword: function(oldPassword, newPassword) {
@@ -122,14 +195,29 @@ console.log(error);
           );
         },
 
+        userPoolSendMFACode: function() {
+// @todo: implement
+        },
+
+        _userPoolNewPasswordResponse: function(error, result) {
+          if (error) {
+            this.fire('new-password-failed', error);
+            return;
+          }
+
+          this.set('signedIn', true);
+          this._setCognitoCredentials(result.getIdToken().getJwtToken());
+          this.fire('new-password-set');
+        },
+
         _userPoolChangePasswordResponse: function(error, result) {
           if (error) {
-console.log(error);
             this.fire('password-change-failed', error);
             return;
           }
 
-console.log('call result:', result);
+          this.set('signedIn', true);
+          this._setCognitoCredentials(result.getIdToken().getJwtToken());
           this.fire('password-changed');
         },
 
@@ -139,7 +227,34 @@ console.log('call result:', result);
               UserPoolId: poolId,
               ClientId: clientId
             });
+
+            this._cognitoUser = this._userPool.getCurrentUser();
+
+            if (this._cognitoUser !== null) {
+              this._cognitoUser.getSession(this._userPoolSession.bind(this));
+            }
           }
+        },
+
+        _userPoolSession: function(error, session) {
+          if (error) {
+            throw new Error('Could not get session', error);
+          }
+
+          if (session.isValid()) {
+            this.set('signedIn', true);
+            this._setCognitoCredentials(session.getIdToken().getJwtToken());
+          }
+        },
+
+        _setCognitoCredentials: function(token) {
+          var logins = {};
+          logins['cognito-idp.' + this.region + '.amazonaws.com/' + this.userPoolId] = token;
+          AWS.config.credentials = new AWS.CognitoIdentityCredentials({
+            identityPoolId: this.identityPoolId,
+            Logins: logins
+          });
+          logins = null;
         }
       });
     })();
