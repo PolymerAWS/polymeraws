@@ -42,6 +42,14 @@ Polymer Web Component for AWS Cognito
         is: 'aws-cognito',
 
         properties: {
+          region: {
+            type: String,
+            value: ''
+          },
+          identityPoolId: {
+            type: String,
+            value: ''
+          },
           userPoolId: {
             type: String,
             value: ''
@@ -50,17 +58,12 @@ Polymer Web Component for AWS Cognito
             type: String,
             value: ''
           },
-          identityPoolId: {
-            type: String,
-            observer: '_authenticate'
-          },
           signedIn: {
             type: Boolean,
             notify: true,
             readonly: true,
             value: false
           },
-          region: String,
           _userPool: Object
         },
 
