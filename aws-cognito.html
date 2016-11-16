@@ -254,7 +254,7 @@ Destination: "j***@r***.com"
           var logins = {};
           logins['cognito-idp.' + this.region + '.amazonaws.com/' + this.userPoolId] = token;
           AWS.config.credentials = new AWS.CognitoIdentityCredentials({
-            identityPoolId: this.identityPoolId,
+            IdentityPoolId: this.identityPoolId,
             Logins: logins
           });
           logins = null;
