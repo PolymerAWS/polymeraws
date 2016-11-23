@@ -31,6 +31,24 @@ Polymer Web Component for AWS DynamoDB
       Polymer({
         is: 'aws-dynamodb',
 
+        /**
+         * Fired when an update or insert failed.
+         *
+         * @event error
+         */
+
+        /**
+         * Fired when an insert succeeded.
+         *
+         * @event record-inserted
+         */
+
+        /**
+         * Fired when an update succeeded.
+         *
+         * @event record-updated
+         */
+
         properties: {
           /**
            * If `true`, automatically requests data from DynamoDB when attributes change.
@@ -189,15 +207,6 @@ Polymer Web Component for AWS DynamoDB
         },
 
         /**
-         * Adds the record to the table
-         *
-         * @param   {Object} record The record that should be added to the table.
-         */
-        addRecord: function(record) {
-// @todo: implement
-        },
-
-        /**
          * Requests the data from DynamoDB
          *
          * It will be called automatically if the auto attribute is set
@@ -217,6 +226,31 @@ Polymer Web Component for AWS DynamoDB
               this._handleResponse.bind(this)
             );
           }
+        },
+
+        /**
+         * Adds the record to the table
+         *
+         * For example:
+         * ```javascript
+         * this.$.dynamoDb.insertRecord({
+         *   id: '1',
+         *   attribute: 'value'
+         * });
+         * ```
+         *
+         * @param   {Object} record The record that should be added to the table.
+         */
+        insertRecord: function(record) {
+          var params = {
+            Item: this._generateInsertItem(record),
+            TableName: this.tableName
+          };
+
+          this._dynamoDBRef.putItem(
+            params,
+            this._handleInsertResponse.bind(this)
+          );
         },
 
         /**
@@ -241,11 +275,57 @@ Polymer Web Component for AWS DynamoDB
         /**
          * Updates the given record in the table
          *
-         * @param   {Number} index The index of the record in the table.
-         * @param   {Object} record The updated record.
+         * For example:
+         * ```javascript
+         * this.$.dynamoDb.updateRecord({
+         *   id: "1"
+         * }, {
+         *  attribute: "value"
+         * });
+         * ```
+         *
+         * @param   {Object} index The attribute name and
+         * value of the index(es) of the record in the table.
+         * @param   {Object} changes The changes for the record.
          */
-        updateRecord: function(index, record) {
-// @todo: implement
+        updateRecord: function(index, changes) {
+          var expressionAttributes = this._generateUpdateConditions(changes);
+
+          var params = {
+            Key: this._generateKeys(index),
+            TableName: this.tableName,
+            ExpressionAttributeNames: expressionAttributes.names,
+            ExpressionAttributeValues: expressionAttributes.values,
+            UpdateExpression: expressionAttributes.expression
+          };
+          this._dynamoDBRef.updateItem(
+            params,
+            this._handleUpdateResponse.bind(this)
+          );
+        },
+
+        _awsSubstituteValue: function(value) {
+          var substitution;
+
+          switch (typeof value) {
+            case 'array':
+              substitution = { L: value };
+              break;
+            case 'object':
+              substitution = { M: value };
+              break;
+            case 'string':
+              substitution = { S: value.toString() };
+              break;
+            case 'number':
+              substitution = { N: value.toString() };
+              break;
+            case 'boolean':
+              substitution = { BOOL: value };
+              break;
+          }
+
+          return substitution;
         },
 
         _computeParams: function(table, limit, traversal, index, conditions, filter) {
@@ -302,25 +382,7 @@ Polymer Web Component for AWS DynamoDB
             name = '#' + key;
             value = ':' + key;
             conditionParams.names[name] = key;
-
-            // Determine the value type
-            switch (typeof condition[key].value) {
-              case 'array':
-                conditionParams.values[value] = { L: condition[key].value };
-                break;
-              case 'object':
-                conditionParams.values[value] = { M: condition[key].value };
-                break;
-              case 'string':
-                conditionParams.values[value] = { S: condition[key].value.toString() };
-                break;
-              case 'number':
-                conditionParams.values[value] = { N: condition[key].value.toString() };
-                break;
-              case 'boolean':
-                conditionParams.values[value] = { BOOL: condition[key].value };
-                break;
-            }
+            conditionParams.values[value] = this._awsSubstituteValue(condition[key].value);
 
             if (condition[key].condition === 'begins_with') {
               conditionParams.expression += 'begins_with(' + name + ', ' + value + ') AND ';
@@ -335,10 +397,67 @@ Polymer Web Component for AWS DynamoDB
           return conditionParams;
         },
 
+        _generateInsertItem: function(data) {
+          var item, result = {};
+
+          for (item in data) {
+            result[item] = this._awsSubstituteValue(data[item]);
+          }
+
+          return result;
+        },
+
+        _generateKeys: function(keys) {
+          var key;
+          var result = {};
+
+          for (key in keys) {
+            result[key] = this._awsSubstituteValue(keys[key]);
+          }
+
+          return result;
+        },
+
+        _generateUpdateConditions: function(changes) {
+          var item;
+          var substituteTokens = {};
+          var substituteValues = {};
+          var expression = '';
+
+          for (item in changes) {
+            substituteTokens['#' + item] = item;
+            substituteValues[':' + item] = this._awsSubstituteValue(changes[item]);
+            expression += 'SET #' + item + ' = :' + item + ', ';
+          }
+
+          expression = expression.slice(0, -2);
+
+          return {
+            expression: expression,
+            names: substituteTokens,
+            values: substituteValues
+          }
+        },
+
+        _generateUpdateExpression: function(changes) {
+          return 'SET #shared = '
+        },
+
         _getData: function() {
           if (this.auto) {
             this.getData();
           }
+        },
+
+        _handleInsertResponse: function(error, data) {
+          if (error) {
+            this.fire('error', {
+              source: 'insertRecord',
+              error: error
+            });
+          }
+
+          this.fire('record-inserted');
         },
 
         _handleResponse: function(error, data) {
@@ -357,6 +476,17 @@ Polymer Web Component for AWS DynamoDB
           } else {
             this.set('data', data.Items);
           }
+        },
+
+        _handleUpdateResponse: function(error, data) {
+          if (error) {
+            this.fire('error', {
+              source: 'updateRecord',
+              error: error
+            });
+          }
+
+          this.fire('record-updated');
         },
 
         _isOperationValid: function(operation) {
