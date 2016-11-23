@@ -323,14 +323,14 @@ Polymer Web Component for AWS DynamoDB
             }
 
             if (condition[key].condition === 'begins_with') {
-              conditionParams.expression += 'begins_with(' + name + ', ' + value + '), ';
+              conditionParams.expression += 'begins_with(' + name + ', ' + value + ') AND ';
             } else {
-              conditionParams.expression += name + ' ' + condition[key].condition + ' ' + value + ', ';
+              conditionParams.expression += name + ' ' + condition[key].condition + ' ' + value + ' AND ';
             }
           }
 
           // Remove the last comma
-          conditionParams.expression = conditionParams.expression.slice(0, -2);
+          conditionParams.expression = conditionParams.expression.slice(0, -4);
 
           return conditionParams;
         },
