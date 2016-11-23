@@ -319,6 +319,40 @@
             });
           });
 
+          test('chains multiple conditions with AND operator', function() {
+            dynamoDbElement.set('conditions', [{
+              id: {
+                condition: '=',
+                value: 2
+              }
+            }, {
+              title: {
+                condition: 'begins_with',
+                value: 'Test Note #2'
+              }
+            }]);
+
+            expect(dynamoDbElement._dynamoDBRef.query).to.be.calledWith({
+              ConsistentRead: false,
+              ExpressionAttributeNames: {
+                '#id': 'id',
+                '#title': 'title'
+              },
+              ExpressionAttributeValues: {
+                ':id': {
+                  N: '2'
+                },
+                ':title': {
+                  S: 'Test Note #2'
+                }
+              },
+              KeyConditionExpression: '#id = :id AND begins_with(#title, :title)',
+              Limit: 100,
+              ScanIndexForward: true,
+              TableName: 'testTable'
+            });
+          });
+
           test('does not set condition if value is empty', function() {
             dynamoDbElement.set('conditions', [{
               test: {
