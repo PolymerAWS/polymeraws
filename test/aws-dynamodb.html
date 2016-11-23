@@ -36,6 +36,12 @@
       </template>
     </test-fixture>
 
+    <test-fixture id="Modify">
+      <template>
+        <aws-dynamodb table-name="testTable" operation="query" format-data auto></aws-dynamodb>
+      </template>
+    </test-fixture>
+
     <script>
       var AWS = {};
 
@@ -397,12 +403,88 @@
           });
         });
 
-        suite.skip('update record', function() {
+        suite('update record', function() {
+          setup(function() {
+            AWS.DynamoDB = function DynamoDB() {
+              this.query = sinon.stub().callsArgWith(1, null, testData);
+              this.updateItem = sinon.stub().callsArgWith(1, null, {});
+            };
+            dynamoDbElement = fixture('Modify');
+          });
 
+          test('updates a record in the database', function(done) {
+            dynamoDbElement.addEventListener('record-updated', function() {
+              expect(dynamoDbElement._dynamoDBRef.updateItem).to.be.calledWith({
+                Key: {
+                  id: {
+                    N: '1'
+                  }
+                },
+                TableName: 'testTable',
+                ExpressionAttributeNames: {
+                  '#shared': 'shared'
+                },
+                ExpressionAttributeValues: {
+                  ':shared': {
+                    BOOL: false
+                  }
+                },
+                UpdateExpression: 'SET #shared = :shared'
+              });
+
+              done();
+            });
+
+            dynamoDbElement.updateRecord({
+              id: 1
+            }, {
+              shared: false
+            });
+          });
         });
 
-        suite.skip('add record', function() {
+        suite('add record', function() {
+          setup(function() {
+            AWS.DynamoDB = function DynamoDB() {
+              this.query = sinon.stub().callsArgWith(1, null, {Items: []});
+              this.putItem = sinon.stub().callsArgWith(1, null, {});
+            };
+            dynamoDbElement = fixture('Modify');
+          });
 
+          test('adds a record in the database', function(done) {
+            dynamoDbElement.addEventListener('record-inserted', function() {
+              expect(dynamoDbElement._dynamoDBRef.putItem).to.be.calledWith({
+                Item: {
+                  id: {
+                    N: '5'
+                  },
+                  title: {
+                    S: 'New test note'
+                  },
+                  shared: {
+                    BOOL: false
+                  },
+                  likeCount: {
+                    N: '0'
+                  },
+                  content: {
+                    S: 'New note content'
+                  }
+                },
+                TableName: 'testTable'
+              });
+              done();
+            });
+
+            dynamoDbElement.insertRecord({
+              id: 5,
+              title: 'New test note',
+              shared: false,
+              likeCount: 0,
+              content: 'New note content'
+            });
+          });
         });
       });
     </script>
