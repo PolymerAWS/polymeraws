@@ -1,3 +1,15 @@
+<!--
+@todo:
+- is it possible to load behaviours conditionally?
+- load the providers based on attribute by behaviors?
+- Reflect the latest changes in the README (maybe we should use Facebook or Google as example)
+- Implement the other popular provider
+  - Facebook
+  - Google
+  - Twitter
+  - Amazon
+-->
+
 <link rel="import" href="../polymer/polymer.html">
 <link rel="import" href="aws-cognito-script.html">
 
@@ -23,9 +35,11 @@ Polymer Web Component for AWS Cognito
        * </aws-app>
        * <aws-cognito
        *     id="cognito"
-       *     user="{{user}}"
-       *     provider="google"
-       *     on-error="handleError">
+       *     region="eu-west-1"
+       *     provider="userPool"
+       *     identity-pool-id=""
+       *     user-pool-id=""
+       *     user-pool-client-id="">
        * </aws-cognito>
        * ```
        *
@@ -42,29 +56,58 @@ Polymer Web Component for AWS Cognito
         is: 'aws-cognito',
 
         properties: {
+          /**
+           * The region your Cognito pool is located.
+           *
+           * For example: 'eu-west-1'
+           */
           region: {
             type: String,
             value: ''
           },
+
+// @todo: append the correct location or hint to location
+          /**
+           * The identitiy pool id, this can be found at __LOCATION__
+           *
+           * For example: 'eu-west-1:XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX'
+           */
           identityPoolId: {
             type: String,
             value: ''
           },
+
+// @todo: figure out what the correct name for user pool is, and if we extract the providers into behaviors: move the attributes there
+          /**
+           * The user pool id, part of the user pool provider
+           */
           userPoolId: {
             type: String,
             value: ''
           },
+
+          /**
+           * The user pool client id
+           */
           userPoolClientId: {
             type: String,
             value: ''
           },
+
+          /**
+           * True if the client is authenticated, and false if the client is not
+           * authenticated.
+           */
           signedIn: {
             type: Boolean,
             notify: true,
             readonly: true,
             value: false
           },
-          _userPool: Object
+
+          _userPool: {
+            type: Object
+          }
         },
 
         observers: [
@@ -75,6 +118,14 @@ Polymer Web Component for AWS Cognito
           // this._cognitoRef = new AWS.CognitoIdentity();
         // }
 
+        /**
+         * Signs the user up for the user pool
+         *
+         * @param   {String} username The username of the new user
+         * @param   {String} password The password of the new user
+         * @param   {Array} attributes The attributes that sould be registered
+         * for this user, this should be a simple key, value list.
+         */
         userPoolSignUp: function(username, password, attributes) {
           var attribute, attributeList = [];
           for (attribute in attributes) {
@@ -95,6 +146,12 @@ Polymer Web Component for AWS Cognito
           );
         },
 
+        /**
+         * Signs the user in for the user pool
+         *
+         * @param   {String} username The username of the user
+         * @param   {String} password The password of the user
+         */
         userPoolSignIn: function(username, password) {
           if (!this._userPool) {
             throw new Error('no user pool');
@@ -118,6 +175,10 @@ Polymer Web Component for AWS Cognito
           });
         },
 
+// @todo: should we rename this to global sign out; in other words: is this user pool specific?
+        /**
+         * Signs the user out of cognito/user pool
+         */
         userPoolSignOut: function() {
           if (this.signedIn && this._cognitoUser) {
             this._cognitoUser.signOut();
@@ -182,7 +243,19 @@ Destination: "j***@r***.com"
           this._cognitoUser.confirmPassword(verficationCode, newPassword);
         },
 
+        /**
+         * Updates the users password in the user pool
+         *
+         * This function is needed for users that are forced to choose a new
+         * password. For example if the user account is created by an admin.
+         *
+         * Note: the user must sign in first, this function should only be
+         * triggered if the 'new-password-required' event is fired.
+         *
+         * @param   {String} newPassword The new password for the user
+         */
         userPoolNewPassword: function(newPassword) {
+// @todo: onSuccess
           this._cognitoUser.completeNewPasswordChallenge(
             newPassword,
             {},
@@ -190,6 +263,14 @@ Destination: "j***@r***.com"
           );
         },
 
+        /**
+         * Changes the users password in the user pool
+         *
+         * This function resets the users password
+         *
+         * @param   {String} oldPassword The old password of the user
+         * @param   {String} newPassword The new password of the user
+         */
         userPoolChangePassword: function(oldPassword, newPassword) {
           this._cognitoUser.changePassword(
             oldPassword,
@@ -198,6 +279,9 @@ Destination: "j***@r***.com"
           );
         },
 
+        /**
+         *
+         */
         userPoolSendMFACode: function() {
 // @todo: implement
         },
