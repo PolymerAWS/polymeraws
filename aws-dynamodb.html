@@ -422,12 +422,12 @@ Polymer Web Component for AWS DynamoDB
           var item;
           var substituteTokens = {};
           var substituteValues = {};
-          var expression = '';
+          var expression = 'SET ';
 
           for (item in changes) {
             substituteTokens['#' + item] = item;
             substituteValues[':' + item] = this._awsSubstituteValue(changes[item]);
-            expression += 'SET #' + item + ' = :' + item + ', ';
+            expression += '#' + item + ' = :' + item + ', ';
           }
 
           expression = expression.slice(0, -2);
@@ -437,10 +437,6 @@ Polymer Web Component for AWS DynamoDB
             names: substituteTokens,
             values: substituteValues
           }
-        },
-
-        _generateUpdateExpression: function(changes) {
-          return 'SET #shared = '
         },
 
         _getData: function() {
