@@ -451,6 +451,7 @@ Polymer Web Component for AWS DynamoDB
               source: 'insertRecord',
               error: error
             });
+            return;
           }
 
           this.fire('record-inserted');
@@ -480,6 +481,7 @@ Polymer Web Component for AWS DynamoDB
               source: 'updateRecord',
               error: error
             });
+            return;
           }
 
           this.fire('record-updated');
