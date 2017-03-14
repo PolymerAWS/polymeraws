@@ -1,0 +1,123 @@
+<link rel="import" href="../polymer/polymer.html">
+
+<!--
+`aws-s3`
+Polymer Web Components for AWS S3
+-->
+
+<dom-module id="aws-s3">
+  <script>
+    (function () {
+      'use strict';
+
+      /**
+       * The `aws-s3` element is an easy way to get objects from an S3 bucket.
+       *
+       * Example usage:
+       *
+       * ```html
+       * <aws-app
+       *     region="eu-west-1">
+       * </aws-app>
+       * <aws-s3
+       *     bucket="noteBucket"
+       *     object-key="firstNote"
+       *     content="{{s3Object}}">
+       * </aws-s3>
+       * ```
+       *
+       * The `aws-s3` element initializes `AWS` in `aws-s3`.
+       *
+       * JavaScript getObject calls can then be made to the `aws-s3` object to retrieve
+       * the object contents.
+       *
+       * ```javascript
+       * this.$.noteObject.getData();
+       * ```
+       */
+      Polymer({
+        is: 'aws-s3',
+
+        /**
+         * Fired when getData succeeds.
+         *
+         * @event response
+         */
+
+        properties: {
+          /**
+           * The name of the S3 bucket
+           *
+           * For example: 'transformNotes'
+           */
+          bucket: {
+            type: String,
+            value: ''
+          },
+
+          /**
+           * Get response.
+           *
+           * This will be updated every time the object changes.
+           */
+          content: {
+            type: String,
+            notify: true,
+            readOnly: true
+          },
+
+          /**
+           * getData's error, if any.
+           */
+          lastError: {
+            type: Object,
+            notify: true,
+            readOnly: true
+          },
+
+          /**
+           * The key of the S3 object
+           *
+           * For example: 'notes/firstNote'
+           */
+          objectKey: {
+            type: String,
+            value: ''
+          },
+
+          _s3ref: {
+            type: Object
+          }
+        },
+
+        attached: function () {
+          this._s3ref = new AWS.S3();
+        },
+
+        /**
+         * Retrieves the data of the S3 object
+         */
+        getData: function() {
+          if (this.get('bucket') === '') {
+            throw new Error('Bucket is not set');
+          }
+          if (this.get('objectKey') === '') {
+            throw new Error('Object is not set');
+          }
+
+          this._s3ref.getObject({
+            Bucket: this.bucket,
+            Key: this.objectKey
+          }, this._handleResponse.bind(this));
+        },
+
+        _handleResponse: function(error, response) {
+          this._setLastError(error);
+          this._setContent(response.Body);
+
+          this.fire('response', response);
+        }
+      });
+    })();
+  </script>
+</dom-module>
