@@ -68,10 +68,18 @@ Example usage:
     region="eu-west-1">
 </aws-app>
 <aws-s3
+    id="noteObject"
     bucket="noteBucket"
-    object="firstNote"
+    object-key="firstNote"
     content="{{s3Object}}">
 </aws-s3>
 ```
 
 The `aws-s3` element initializes `AWS` in `aws-s3`.
+
+JavaScript getObject calls can then be made to the `aws-s3` object to retrieve
+the object contents.
+
+```javascript
+this.$.noteObject.getData();
+```
