@@ -1,0 +1,74 @@
+<!doctype html>
+
+<html>
+  <head>
+    <title>aws-s3 tests</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1, user-scalable=yes">
+    <script src="../../webcomponentsjs/webcomponents-lite.js"></script>
+    <script src="../../web-component-tester/browser.js"></script>
+
+    <link rel="import" href="../aws-s3.html">
+  </head>
+  <body>
+
+    <test-fixture id="Basic">
+      <template>
+        <aws-s3 bucket="noteBucket" object-key="firstNote"></aws-s3>
+      </template>
+    </test-fixture>
+
+    <test-fixture id="MissingBucket">
+      <template>
+        <aws-s3></aws-s3>
+      </template>
+    </test-fixture>
+
+    <script>
+      var AWS = {};
+
+      suite('<aws-s3>', function() {
+        var s3Element;
+
+        suite('attached', function () {
+          setup(function () {
+            AWS.S3 = sinon.stub();
+            s3Element = fixture('Basic');
+          });
+
+          test('constructs a service interface object', function() {
+            expect(AWS.S3).to.be.calledOnce;
+          });
+        });
+
+        suite('basic usage', function() {
+          setup(function () {
+            AWS.S3 = function S3 () {
+              this.getObject = sinon.stub().callsArgWith(1, null, {
+                Body: JSON.stringify({ title: 'First note' })
+              });
+            };
+            s3Element = fixture('Basic');
+          });
+
+          test('retrieves the object from S3', function() {
+            s3Element.getData();
+            expect(JSON.parse(s3Element.content)).to.deep.equal({title: 'First note'});
+          });
+        });
+
+        suite('missing attributes', function() {
+          setup(function () {
+            s3Element = fixture('MissingBucket');
+          });
+
+          test('returns rejected promise on invocation', function() {
+            expect(s3Element.getData.bind(s3Element)).to.throw('Bucket is not set');
+            s3Element.bucket = 'noteBucket';
+            expect(s3Element.getData.bind(s3Element)).to.throw('Object is not set');
+          });
+        });
+      });
+    </script>
+  </body>
+</html>
