@@ -56,3 +56,22 @@ the Lambda function.
 ```javascript
 this.$.transformNotes.invoke();
 ```
+
+## \<aws-s3\>
+
+The `aws-s3` element is an easy way to get objects from an S3 bucket.
+
+Example usage:
+
+```html
+<aws-app
+    region="eu-west-1">
+</aws-app>
+<aws-s3
+    bucket="noteBucket"
+    object="firstNote"
+    content="{{s3Object}}">
+</aws-s3>
+```
+
+The `aws-s3` element initializes `AWS` in `aws-s3`.
