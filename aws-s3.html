@@ -102,7 +102,7 @@ Polymer Web Components for AWS S3
             throw new Error('Bucket is not set');
           }
           if (this.get('objectKey') === '') {
-            throw new Error('Object is not set');
+            throw new Error('Object key is not set');
           }
 
           this._s3ref.getObject({

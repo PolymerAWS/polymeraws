@@ -65,7 +65,7 @@
           test('returns rejected promise on invocation', function() {
             expect(s3Element.getData.bind(s3Element)).to.throw('Bucket is not set');
             s3Element.bucket = 'noteBucket';
-            expect(s3Element.getData.bind(s3Element)).to.throw('Object is not set');
+            expect(s3Element.getData.bind(s3Element)).to.throw('Object key is not set');
           });
         });
       });
