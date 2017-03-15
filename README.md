@@ -83,3 +83,10 @@ the object contents.
 ```javascript
 this.$.noteObject.getData();
 ```
+
+JavaScript putObject calls can then be made to the `aws-s3` object to upload an
+object to the bucket.
+
+```javascript
+this.$.noteObject.putObject(file, key, contentType)
+```

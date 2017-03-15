@@ -34,6 +34,13 @@ Polymer Web Components for AWS S3
        * ```javascript
        * this.$.noteObject.getData();
        * ```
+       *
+       * JavaScript putObject calls can then be made to the `aws-s3` object to
+       * upload an object to the bucket.
+       *
+       * ```javascript
+       * this.$.noteObject.putObject(file, key, contentType);
+       * ```
        */
       Polymer({
         is: 'aws-s3',
@@ -109,6 +116,31 @@ Polymer Web Components for AWS S3
             Bucket: this.bucket,
             Key: this.objectKey
           }, this._handleResponse.bind(this));
+        },
+
+        /**
+         * Uploads a given object to the S3 bucket
+         */
+        putObject: function(file, key, contentType) {
+          if (typeof file === 'undefined') {
+            throw new Error('Missing file');
+          }
+          if (typeof key === 'undefined') {
+            throw new Error('Missing object key');
+          }
+          if (typeof contentType === 'undefined') {
+            throw new Error('Missing content type');
+          }
+
+          this._s3ref.putObject({
+            Key: key,
+            ContentType: contentType,
+            Body: file
+          }, this._objectUploaded.bind(this));
+        },
+
+        _objectUploaded: function(error, response) {
+          this.fire('uploaded', response);
         },
 
         _handleResponse: function(error, response) {

@@ -57,6 +57,36 @@
           });
         });
 
+        suite('upload object', function() {
+          setup(function() {
+            AWS.S3 = function S3() {
+              this.putObject = sinon.stub().callsArgWith(1, null, {
+                ETag: '618cde169ac3accb1c9db24c70a6a737'
+              });
+            };
+            s3Element = fixture('Basic');
+          });
+
+          test('throws errors if putObject is missing arguments', function() {
+            expect(s3Element.putObject.bind(s3Element)).to.throw('Missing file');
+            expect(s3Element.putObject.bind(s3Element, {})).to.throw('Missing object key');
+            expect(s3Element.putObject.bind(s3Element, {}, '')).to.throw('Missing content type');
+          });
+
+          test('uploads a given file to S3', function(done) {
+            s3Element.addEventListener('uploaded', function() {
+              expect(s3Element._s3ref.putObject).to.be.calledWith({
+                Key: 'path/fileName',
+                ContentType: 'text/json',
+                Body: JSON.stringify({ a: 'b' })
+              });
+              done();
+            });
+
+            s3Element.putObject(JSON.stringify({ a: 'b' }), 'path/fileName', 'text/json');
+          });
+        });
+
         suite('missing attributes', function() {
           setup(function () {
             s3Element = fixture('MissingBucket');
