@@ -141,6 +141,8 @@ Polymer Web Components for AWS S3
         },
 
         _objectUploaded: function(error, response) {
+          this._setLastError(error);
+
           this.fire('uploaded', response);
         },
 
