@@ -133,6 +133,7 @@ Polymer Web Components for AWS S3
           }
 
           this._s3ref.putObject({
+            Bucket: this.bucket,
             Key: key,
             ContentType: contentType,
             Body: file

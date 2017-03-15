@@ -76,6 +76,7 @@
           test('uploads a given file to S3', function(done) {
             s3Element.addEventListener('uploaded', function() {
               expect(s3Element._s3ref.putObject).to.be.calledWith({
+                Bucket: 'noteBucket',
                 Key: 'path/fileName',
                 ContentType: 'text/json',
                 Body: JSON.stringify({ a: 'b' })
