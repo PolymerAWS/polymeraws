@@ -112,10 +112,14 @@ Polymer Web Components for AWS S3
             throw new Error('Object key is not set');
           }
 
-          this._s3ref.getObject({
+          return this._s3ref.getObject({
             Bucket: this.bucket,
             Key: this.objectKey
-          }, this._handleResponse.bind(this));
+          }).promise().then(function(data) {
+            this._handleResponse(data);
+          }.bind(this)).catch(function (error) {
+            this._setLastError(error);
+          }.bind(this));
         },
 
         /**
@@ -146,8 +150,7 @@ Polymer Web Components for AWS S3
           this.fire('uploaded', response);
         },
 
-        _handleResponse: function(error, response) {
-          this._setLastError(error);
+        _handleResponse: function(response) {
           this._setContent(response.Body);
 
           this.fire('response', response);
