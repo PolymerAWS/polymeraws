@@ -117,8 +117,10 @@ Polymer Web Components for AWS S3
             Key: this.objectKey
           }).promise().then(function(data) {
             this._handleResponse(data);
+            return Promise.resolve();
           }.bind(this)).catch(function (error) {
             this._setLastError(error);
+            return Promise.reject();
           }.bind(this));
         },
 
