@@ -1,0 +1,174 @@
+<link rel="import" href="../polymer/polymer.html">
+
+<!--
+`aws-s3`
+Polymer Web Components for AWS S3
+-->
+
+<dom-module id="aws-s3">
+  <script>
+    (function () {
+      'use strict';
+
+      /**
+       * The `aws-s3` element is an easy way to get objects from an S3 bucket.
+       *
+       * Example usage:
+       *
+       * ```html
+       * <aws-app
+       *     region="eu-west-1">
+       * </aws-app>
+       * <aws-s3
+       *     bucket="noteBucket"
+       *     object-key="firstNote"
+       *     content="{{s3Object}}">
+       * </aws-s3>
+       * ```
+       *
+       * The `aws-s3` element initializes `AWS` in `aws-s3`.
+       *
+       * JavaScript getObject calls can then be made to the `aws-s3` object to
+       * retrieve the object contents.
+       *
+       * ```javascript
+       * this.$.noteObject.getData();
+       * ```
+       *
+       * JavaScript putObject calls can then be made to the `aws-s3` object to
+       * upload an object to the bucket.
+       *
+       * ```javascript
+       * this.$.noteObject.putObject(file, key, contentType);
+       * ```
+       */
+      Polymer({
+        is: 'aws-s3',
+
+        /**
+         * Fired when getData succeeds.
+         *
+         * @event response
+         */
+
+        properties: {
+          /**
+           * The Access Control List of uploaded objects
+           *
+           * For example: 'public-read'
+           */
+          acl: {
+            type: String,
+            value: 'public-read'
+          },
+
+          /**
+           * The name of the S3 bucket
+           *
+           * For example: 'transformNotes'
+           */
+          bucket: {
+            type: String,
+            value: ''
+          },
+
+          /**
+           * Get response.
+           *
+           * This will be updated every time the object changes.
+           */
+          content: {
+            type: String,
+            notify: true,
+            readOnly: true
+          },
+
+          /**
+           * getData's error, if any.
+           */
+          lastError: {
+            type: Object,
+            notify: true,
+            readOnly: true
+          },
+
+          /**
+           * The key of the S3 object
+           *
+           * For example: 'notes/firstNote'
+           */
+          objectKey: {
+            type: String,
+            value: ''
+          },
+
+          _s3ref: {
+            type: Object
+          }
+        },
+
+        attached: function () {
+          this._s3ref = new AWS.S3();
+        },
+
+        /**
+         * Retrieves the data of the S3 object
+         */
+        getData: function() {
+          if (this.get('bucket') === '') {
+            throw new Error('Bucket is not set');
+          }
+          if (this.get('objectKey') === '') {
+            throw new Error('Object key is not set');
+          }
+
+          return this._s3ref.getObject({
+            Bucket: this.bucket,
+            Key: this.objectKey
+          }).promise().then(function(data) {
+            this._handleResponse(data);
+            return Promise.resolve(data);
+          }.bind(this)).catch(function (error) {
+            this._setLastError(error);
+            return Promise.reject(error);
+          }.bind(this));
+        },
+
+        /**
+         * Uploads a given object to the S3 bucket
+         */
+        putObject: function(file, key, contentType) {
+          if (typeof file === 'undefined') {
+            throw new Error('Missing file');
+          }
+          if (typeof key === 'undefined') {
+            throw new Error('Missing object key');
+          }
+          if (typeof contentType === 'undefined') {
+            throw new Error('Missing content type');
+          }
+
+          this._s3ref.putObject({
+            Bucket: this.bucket,
+            Key: key,
+            ContentType: contentType,
+            Body: file,
+            ACL: this.acl
+          }, this._objectUploaded.bind(this));
+        },
+
+        _objectUploaded: function(error, response) {
+          this._setLastError(error);
+
+          this.fire('uploaded', response);
+        },
+
+        _handleResponse: function(response) {
+          this._setContent(response.Body);
+
+          this.fire('response', response);
+        }
+      });
+    })();
+  </script>
+</dom-module>
