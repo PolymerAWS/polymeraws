@@ -53,6 +53,16 @@ Polymer Web Components for AWS S3
 
         properties: {
           /**
+           * The Access Control List of uploaded objects
+           *
+           * For example: 'public-read'
+           */
+          acl: {
+            type: String,
+            value: 'public-read'
+          },
+
+          /**
            * The name of the S3 bucket
            *
            * For example: 'transformNotes'
@@ -117,10 +127,10 @@ Polymer Web Components for AWS S3
             Key: this.objectKey
           }).promise().then(function(data) {
             this._handleResponse(data);
-            return Promise.resolve();
+            return Promise.resolve(data);
           }.bind(this)).catch(function (error) {
             this._setLastError(error);
-            return Promise.reject();
+            return Promise.reject(error);
           }.bind(this));
         },
 
@@ -142,7 +152,8 @@ Polymer Web Components for AWS S3
             Bucket: this.bucket,
             Key: key,
             ContentType: contentType,
-            Body: file
+            Body: file,
+            ACL: this.acl
           }, this._objectUploaded.bind(this));
         },
 

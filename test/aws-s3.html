@@ -87,7 +87,8 @@
                 Bucket: 'noteBucket',
                 Key: 'path/fileName',
                 ContentType: 'text/json',
-                Body: JSON.stringify({ a: 'b' })
+                Body: JSON.stringify({ a: 'b' }),
+                ACL: 'public-read'
               });
               done();
             });
