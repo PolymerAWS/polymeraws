@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="./aws-cognito-script.html">
+
+<!--
+`<aws-cognito>` provides API wrapping and Polymer data binding for Amazon's
+Cognito service.
+
+Example usage:
+
+```
+<aws-app
+    region="us-east-1">
+<aws-cognito id="cognito"
+    user-pool-id="us-east-1_XXXXXXXXX"
+    client-id="3XXXXXfea3nXXX0k3XXXXXX9p5"
+    identity-pool-id="us-east-1:XXXXXXXX-XXXX-XXXX-XXXX-XXXXAXXXXXXX"
+></aws-cognito>
+```
+-->
+
+<dom-module id="aws-cognito">
+  <script>
+    Polymer({
+      is: 'aws-cognito',
+      properties: {
+
+        /**
+         * The optional AWS region Cognito should run in.
+         *
+         * Example: `us-east-1`
+         *
+         * @type: {string}
+         */
+        region: String,
+
+        /**
+         * The Cognito User Pool ID.
+         *
+         * Example: 'us-east-1_XXXXXXXXX'
+         *
+         * @type: {string}
+         */
+        userPoolId: String,
+
+        /**
+         * The Cognito App client id.
+         *
+         * Example: 'XXXXXXXXXXXXXXXXXXXXXXXXXX'
+         *
+         * @type {string}
+         */
+        clientId: String,
+
+        /**
+         * The Cognito identity pool ID.
+         *
+         * Example: 'us-east-1:XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX'
+         *
+         * @type: {string}
+         */
+        identityPoolId: String,
+
+        /**
+         * Whether or not to periodically try to refresh user session.
+         */
+        noAutoRefresh: {
+          type: Boolean,
+          value: false,
+        },
+
+        /**
+         * The interval, in minutes, at which to try to refresh user session.
+         */
+        refreshUserInterval: {
+          type: Number,
+          value: 20,
+        },
+
+        /**
+         * Indicates whether or not `<aws-cognito>` will attempt to refresh the
+         * Cognito user at the end of the current interval.
+         */
+        _shouldRefreshUser: {
+          type: Boolean,
+          observer: '_onShouldRefreshUserChange',
+        },
+      },
+
+      ready: function() {
+        console.debug(`${this.localName} is ready`);
+        this._initCognito();
+      },
+
+      /**
+       * Dispatches an error.
+       *
+       * @param  {Object} error Error object. Should contain `message` key.
+       */
+      _handleError: function(error) {
+        this.dispatchEvent(new ErrorEvent('error', error));
+      },
+
+      /**
+       * Tries to keep a user, credentials, attributes fresh
+       * When _shouldRefreshUser is made false, clears the interval.
+       *
+       * @param  {Boolean} nv The new value.
+       * @param  {Boolean} ov The old value.
+       */
+      _onShouldRefreshUserChange: function(nv, ov) {
+        if (this._shouldRefreshUser === undefined) {return;}
+        if (!nv && ov) {
+          // Was true, now false i.e. stop refreshing
+          if (this._refreshCognitoUserIntervalRef) {
+            console.debug(`Clearing user refresh interval`);
+            clearInterval(this._refreshCognitoUserIntervalRef);
+          }
+          this._refreshCognitoUserIntervalRef = undefined;
+        } else if (!this._refreshCognitoUserIntervalRef && nv && !ov) {
+          // Was false now true i.e. start refreshing
+          let refreshCallback = () => {
+            // Lets refresh this guy (or girl (or fish))
+            const userPool = this._getCognitoUserPool();
+            const cognitoUser = userPool.getCurrentUser();
+            if (cognitoUser) {
+              console.info(`Trying to keep user ${cognitoUser.username} fresh`);
+              this._recoverUser(cognitoUser)
+              .then((successBool) => {
+                if (successBool) {
+                  let expiry = AWS.config.credentials.expireTime;
+                  console.debug(`Credential Expiry: ${expiry}`);
+                }
+                })
+              .catch((error) => console.error(error));
+            }
+          };
+          let time = this.refreshUserInterval;
+          console.debug(`Setting user refresh interval at ${time} minutes`);
+          this._refreshCognitoUserIntervalRef = setInterval(refreshCallback,
+            this.refreshUserInterval * 1000 * 60);
+        }
+      },
+
+      /**
+       * Since Amazon apps can run with Cognito in a different region than other
+       * services, `_initCognito` first checks if a cognito=specific region was
+       * defined before accepting the global AWS region.
+       */
+      _initCognito: function() {
+        AWSCognito.config.region = AWSCognito.region || this.region || AWS.config.region;
+      },
+
+      /**
+       * Gets a userPool object with User Pool ID and Client ID.
+       *
+       * @return {CognitoUserPool} The Cognito User Pool.
+       */
+      _getCognitoUserPool: function() {
+        const USER_POOL_DATA = {
+          UserPoolId: this.userPoolId,
+          ClientId: this.clientId,
+        };
+
+        // const USER_POOL_URL = `cognito-idp${region}.amazonaws.com/${userPoolId}`;
+        // NOTE: to use federated IDs, generate ARN and refer to it here.
+        // see https://medium.com/@kangzeroo/user-management-with-aws-cognito-2-3-the-core-functionality-ec15849618a4#.l5h7n5gru
+
+        let userPool = new AWSCognito.CognitoIdentityServiceProvider
+          .CognitoUserPool(USER_POOL_DATA);
+
+        return userPool;
+      },
+
+      /**
+       * Gets a cognitoUser object from the pool.
+       *
+       * @param  {String}           username The username
+       * @param  {CognitoUserPool}  userPool The Cognito user pool.
+       * @return {CognitoUser}               The Cognito user.
+       */
+      _getCognitoUser: function(username, userPool) {
+        var userData = {
+          Username: username,
+          Pool: userPool,
+        };
+
+        let cognitoUser = new AWSCognito.CognitoIdentityServiceProvider
+          .CognitoUser(userData);
+
+        return cognitoUser;
+      },
+
+      /**
+       * Gets the session for a Cognito User.
+       *
+       * @param  {CognitoUser} cognitoUser    The Cognito user.
+       * @return {Promise.<CognitoSession>}   A promise that resolves to
+       *                                      the Cognito session.
+       */
+      _getCognitoSession: function(cognitoUser) {
+        console.info(`Trying to get Cognito session for ${cognitoUser.username}`);
+        // TODO: Use Amazon's promise method. https://aws.amazon.com/blogs/developer/support-for-promises-in-the-sdk/
+        return new Promise((resolve, reject) => {
+          if (!cognitoUser) {
+            reject(new Error( `No Cognito user found while trying to get session` ));
+          }
+          cognitoUser.getSession((error, cognitoSession) => {
+            if (error) { reject(error); }
+            else { resolve(cognitoSession); }
+          });
+        });
+      },
+
+      /**
+       * Gets a logged-in user's Cognito attributes.
+       *
+       * @param  {CognitoUser}                 cognitoUser     The Cognito user.
+       * @param  {CognitoSession}              cognitoSession  The session.
+       * @return {Promise.<CognitoAttributes>} A promise that resolves to
+       *                                       an array of Attributes.
+       */
+      _getCognitoAttributes: function(cognitoUser) {
+        let name = cognitoUser.username;
+        console.info(`Trying to get Cognito attributes for ${name}`);
+        // TODO: Use Amazon's promise method. https://aws.amazon.com/blogs/developer/support-for-promises-in-the-sdk/
+        return new Promise((resolve, reject) => {
+          if (!cognitoUser) {
+            reject(new Error( `No Cognito user found while trying to get attributes` ));
+          }
+          cognitoUser.getUserAttributes((error, attributes) => {
+            if (error) { reject(error); }
+            else { resolve(attributes); }
+          });
+        });
+      },
+
+      /**
+       * Creates new Cognito credentials for a user.
+       *
+       * @param  {CognitoUser}     cognitoUser    The Cognito user,
+       * @param  {CognitoSession}  cognitoSession The session,
+       * @return {Promise.<CognitoCredentials>}   A promise that resolves to
+       *                                          the generated credentials.
+       */
+      _getCognitoCredentials: function(cognitoUser, cognitoSession) {
+        console.info(`Trying to get credentials for ${cognitoUser.username}`);
+
+        if (!cognitoUser) {
+          throw new Error( `No Cognito user found while trying to get credentials` );
+        }
+        if (!cognitoSession) {
+          throw new Error( `No Cognito session found while trying to get credentials` );
+        }
+        if (!cognitoSession.isValid()) {
+          throw new Error( `Cognito session invalid while trying to get credentials` );
+        }
+
+        else {
+          // Tell AWS SDK about the newly logged in user
+          const url = `cognito-idp.${this.region}.amazonaws.com/${this.userPoolId}`;
+          let params = {};
+              params.IdentityPoolId = this.identityPoolId;
+              params.Logins = {};
+              params.Logins[url] = cognitoSession.getIdToken().getJwtToken();
+          let credentials = new AWS.CognitoIdentityCredentials(params);
+              credentials.clearCachedId(); // https://github.com/aws/aws-sdk-js/issues/609
+              credentials = new AWS.CognitoIdentityCredentials(params);
+          return credentials;
+        }
+      },
+
+      /**
+       * Confirms an unverified Cognito user account.
+       *
+       * @param  {String} username  The username
+       * @param  {String} code      The confirmation code sent to the user.
+       * @return {Promise.<String>} A promise that resolves to
+       *                            AWS Cognito's success message.
+       */
+      _confirmRegistration: function(username, code) {
+        console.info(`Trying to confirm registration of ${username}`);
+        const userPool = this._getCognitoUserPool();
+        const cognitoUser = this._getCognitoUser(username, userPool);
+        // TODO: Use Amazon's promise method. https://aws.amazon.com/blogs/developer/support-for-promises-in-the-sdk/
+        return new Promise((resolve, reject) => {
+          cognitoUser.confirmRegistration(code, true, (error, result) => {
+            if (error) { reject(error); }
+            else { resolve(result); }
+          });
+        });
+      },
+
+      /**
+       * Resends the user's verification code.
+       *
+       * @param  {String} username                The username
+       * @return {Promise.<CodeDeliveryDetails>}  A promise that resolves to
+       *                                          the code delivery details.
+       */
+      _resendVerificationCode: function(username) {
+        console.info(`Trying to resend confirmation code for ${username}`);
+        const userPool = this._getCognitoUserPool();
+        const cognitoUser = this._getCognitoUser(username, userPool);
+        // TODO: Use Amazon's promise method. https://aws.amazon.com/blogs/developer/support-for-promises-in-the-sdk/
+        return new Promise((resolve, reject) => {
+          cognitoUser.resendConfirmationCode((error, result) => {
+            if (error) { reject(error); }
+            else { resolve(result); }
+          });
+        });
+      },
+
+      /**
+       * Logs a user into a Cognito app.
+       *
+       * @param  {String} username The username
+       * @param  {String} password The password.
+       * @return {Promise.<cognitoSession>} A promise that resolves to
+       *                                    the Cognito session.
+       */
+      _authenticateUser: function(username, password) {
+        console.info(`Trying to authenticate user ${username}`);
+        const authenticationData = {
+          Username: username,
+          Password: password,
+        };
+        const authenticationDetails = new AWSCognito
+          .CognitoIdentityServiceProvider
+          .AuthenticationDetails(authenticationData);
+        const userPool = this._getCognitoUserPool();
+        const cognitoUser = this._getCognitoUser(username, userPool);
+        // TODO: Use Amazon's promise method. https://aws.amazon.com/blogs/developer/support-for-promises-in-the-sdk/
+        return new Promise((resolve, reject) => {
+          cognitoUser.authenticateUser(authenticationDetails, {
+            onSuccess: (cognitoSession) => resolve(cognitoSession),
+            onFailure: (error) => reject(error),
+          });
+        });
+      },
+
+      /**
+       * Recovers or refreshes a Cognito user.
+       *
+       * @param  {CognitoUser} cognitoUser The Cognito user to refresh or recover.
+       * @return {Promise.<Boolean>}       A promise that resolves to
+       *                                   `true` if the user was successfully
+       *                                   refreshed..
+       */
+      _recoverUser: function(cognitoUser) {
+        // TODO: Use Amazon's promise method. https://aws.amazon.com/blogs/developer/support-for-promises-in-the-sdk/
+        return new Promise((resolve, reject) => {
+          this._getCognitoSession(cognitoUser)
+          .then((cognitoSession) =>
+            this.refreshCognitoCredentials(cognitoUser, cognitoSession))
+          .then((cognitoUser) => this._dispatchCognitoUser(cognitoUser))
+          .then((cognitoUser) => this._getCognitoAttributes(cognitoUser))
+          .then((attributes) => this._dispatchCognitoUserAttributes(attributes))
+          .then(() => resolve(true))
+          .catch((error) => reject(error));
+        });
+      },
+
+      /**
+       * Dispatches an event containing all Cognito user data.
+       *
+       * @param  {CognitoUser}  cognitoUser The Cognito user.
+       * @param  {Object}       credentials The Cognito credentials.
+       * @param  {Array}        attributes  The Cognito user attributes.
+       * @return {CognitoUser}              The dispatched Cognito user.
+       * @fires  cognito-user
+       */
+      _dispatchCognitoUser: function(cognitoUser) {
+        if (!cognitoUser) {
+          throw new Error(`No Cognito user found while dispatching user data`);
+        }
+        if (!AWS.config.credentials) {
+          throw new Error( `No Cognito user credentials found while dispatching user` );
+        }
+        console.info(`Dispatching Cognito user ${cognitoUser.username}`);
+
+        let detail = {};
+        detail.username = cognitoUser.username;
+        detail.cognitoUser = cognitoUser;
+        detail.cognitoIdentityId = AWS.config.credentials.params.IdentityId;
+
+        const cognitoUserUpdated = new CustomEvent('cognito-user', {
+          detail: detail, bubbles: true, composed: true,
+        });
+        this.dispatchEvent(cognitoUserUpdated);
+
+        return cognitoUser;
+      },
+
+      /**
+       * Dispatches an event containing updated user attributes.
+       *
+       * @param  {CognitoAttributes} attributes The updated attributes.
+       * @return {CognitoAttributes}            The updated attributes.
+       * @fires  cognito-attributes
+       */
+      _dispatchCognitoUserAttributes: function(attributes) {
+        if (!attributes) {
+          throw new Error( `No Cognito attributes found while dispatching attributes` );
+        }
+        console.info(`Dispatching Cognito attributes`);
+        let formattedAttributes = {};
+        if (attributes && attributes.length) {
+          // Loop through provided attributes and
+          // generate a flat object from each Name: Value pairs
+          for (var i in attributes) {
+            if (attributes.hasOwnProperty(i)) {
+              formattedAttributes[attributes[i].Name] = attributes[i].Value;
+            }
+          }
+          const cognitoUserUpdated = new CustomEvent('cognito-attributes', {
+            detail: formattedAttributes, bubbles: true, composed: true,
+          });
+          this.dispatchEvent(cognitoUserUpdated);
+
+          return attributes;
+        }
+      },
+
+      /**
+       * Refreshes the user's Cognito credentials.
+       *
+       * @param  {CognitoUser}                   cognitoUser     The Cognito user.
+       * @param  {CognitoSession}                cognitoSession  The session.
+       * @return {Promise.<CognitoCredentials>} A promise that resolves to
+       *                                        the user's Cognito credentials.
+       */
+      refreshCognitoCredentials: function(cognitoUser, cognitoSession) {
+        console.info(`Trying to refresh credentials for ${cognitoUser.username}`);
+        // TODO: Use Amazon's promise method. https://aws.amazon.com/blogs/developer/support-for-promises-in-the-sdk/
+        return new Promise((resolve, reject) => {
+          if (!cognitoUser) {
+            reject(new Error( `No Cognito user found while trying to refresh credentials` )); }
+          if (!cognitoSession) {
+            reject(new Error( `No Cognito session found while trying to refresh credentials` ));
+          }
+          else {
+            const credentials =
+              this._getCognitoCredentials(cognitoUser, cognitoSession);
+
+            credentials.refresh((error) => {
+              if (error) {
+                console.error(`${error.message} while refreshing credentials`);
+                console.log(credentials, cognitoUser, cognitoSession, error);
+                reject(error);
+              }
+              else {
+                console.info(`Updating credentials on global AWS.config`);
+                AWS.config.credentials = credentials;
+                resolve(cognitoUser, cognitoSession, credentials);
+              }
+            });
+          }
+        });
+      },
+
+      /**
+       * Signs a user up to a Cognito app.
+       *
+       * @param  {String} username           The username
+       * @param  {String} password           The password.
+       * @return {Promise.<CognitoSession>}  A promise that resolves to
+       *                                     the Cognito session.
+       */
+      signup: function(username, password) {
+        console.info(`Trying to sign up ${username}`);
+        const userPool = this._getCognitoUserPool();
+        let attributeList = [];
+
+        let dataUsername = {
+            Name: 'email',
+            Value: username,
+        };
+
+        let attributeEmail = new AWSCognito
+          .CognitoIdentityServiceProvider.CognitoUserAttribute(dataUsername);
+
+        attributeList.push(attributeEmail);
+
+        // TODO: Use Amazon's promise method. https://aws.amazon.com/blogs/developer/support-for-promises-in-the-sdk/
+        return new Promise((resolve, reject) => {
+          userPool
+            .signUp(username, password, attributeList, null, (error, result) => {
+            if (error) { reject(error); }
+            if (result) { resolve(result); }
+          });
+        });
+      },
+
+      /**
+       * Verifies a new user based on their input.
+       *
+       * @param  {String} username             The username
+       * @param  {String} code The confirmation code sent to the user.
+       * @fires confirm-success
+       * @fires confirm-error
+       */
+      verify: function(username, code) {
+        this._confirmRegistration(username, code)
+        .then((result) =>
+          this.dispatchEvent(new CustomEvent('confirm-success', {detail: result})))
+        .catch((error) =>
+          this.dispatchEvent(new CustomEvent('confirm-failure', {detail: error})));
+      },
+
+      /**
+       * Tries to log a user in to AWS Cognito.
+       *
+       * @param  {String} username The username
+       * @param  {String} password The user's password.
+       * @return {Promise.<{"message": string,"username": string}>}
+       *         A promise that resolves to
+       *         an object containing a success message and the username.
+       */
+      login: function(username, password) {
+        console.info(`Trying to login ${username}`);
+        // TODO: Use Amazon's promise method. https://aws.amazon.com/blogs/developer/support-for-promises-in-the-sdk/
+        return new Promise((resolve, reject) => {
+          const userPool = this._getCognitoUserPool();
+          const cognitoUser = this._getCognitoUser(username, userPool);
+          this._authenticateUser(username, password)
+          .then(() => this._getCognitoSession(cognitoUser))
+          .then((cognitoSession) =>
+            this.refreshCognitoCredentials(cognitoUser, cognitoSession)
+          ).then((cognitoUser) => this._dispatchCognitoUser(cognitoUser))
+          .then((cognitoUser) => this._getCognitoAttributes(cognitoUser))
+          .then((attributes) => this._dispatchCognitoUserAttributes(attributes))
+          .then(() => {
+            // Begin automatically refreshing user unless asked not to
+            this._shouldRefreshUser = this.noAutoRefresh ? false : true;
+            resolve({message: 'Successfully logged In', username: username});
+          })
+          .catch((error) => this._handleError(error));
+        });
+      },
+
+      /**
+       * Logs a user out of a Cognito app,
+       * then nullifies and dispatches the user object.
+       *
+       * @param  {CognitoUser} cognitoUser The Cognito user.
+       */
+      logout: function(cognitoUser) {
+        console.info(`Logging out user ${cognitoUser.username}`);
+        this._shouldRefreshUser = false;
+        cognitoUser.signOut();
+        cognitoUser = null;
+        this._dispatchCognitoUser({username: null});
+      },
+
+      /**
+        * Tries to recover a user session from localStorage. If user is recovered
+       * successfully, will optionally initiate automatic credential refreshing.
+       *
+       * @return {Promise.<Error>}  A promise that rejects with
+       *                            Cognito's error message if recovery failed.
+       */
+      tryRecoverUser: function() {
+        console.info(`Trying to recover Cognito user session`);
+        const userPool = this._getCognitoUserPool();
+        const cognitoUser = userPool.getCurrentUser();
+        // TODO: Use Amazon's promise method. https://aws.amazon.com/blogs/developer/support-for-promises-in-the-sdk/
+        return new Promise((resolve, reject) => {
+          if (!cognitoUser) {
+            let msg = 'No Cognito user found while trying to recover';
+            console.info(msg);
+            resolve(msg);
+          } else {
+            console.info( `Cognito user ${cognitoUser.username} found. Trying to recover` );
+            this._recoverUser(cognitoUser)
+            .then(() =>
+              this._shouldRefreshUser = !this.noAutoRefresh ? true : false
+            ).catch((error) => reject(error));
+          }
+        });
+      },
+    });
+    /**
+     * @typedef {Object} CognitoUser
+     */
+
+    /**
+     * @typedef {Object} CognitoSession
+     */
+
+    /**
+     * @typedef {Object} CognitoUserPool
+     */
+
+    /**
+     * @typedef {Object.<string, string>} CognitoAttributes
+     */
+
+    /**
+     * @typedef {Object} CognitoCredentials
+     */
+
+    /**
+     * @typedef {{
+     *   "AttributeName": String,
+     *   "DeliveryMedium": String,
+     *   "Destination": String
+     * }} CodeDeliveryDetails
+     */
+
+    /**
+     * Fired when the user is updated by Cognito.
+     *
+     * @event cognito-user
+     * @property {String}       username.
+     * @property {CognitoUser}  Cognito user.
+     * @property {String}       User's Cognito IdentityId.
+     */
+
+    /**
+     * Fired when the user attributes are updated by Cognito.
+     *
+     * @event cognito-attributes
+     * @property {Object}       Attributes.
+     */
+
+    /**
+     * Fired when user confirmatino succeeds.
+     *
+     * @event confirm-success
+     * @property {Object}       Success message.
+     */
+
+    /**
+     * Fired when user confirmation fails.
+     *
+     * @event confirm-failure
+     * @property {Object}       Failure message.
+     */
+  </script>
+</dom-module>
