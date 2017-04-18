@@ -1,13 +1,36 @@
+<!DOCTYPE html>
+
 <link rel="import" href="../polymer/polymer.html">
 
 <!--
-`aws-lambda`
-Polymer Web Components for AWS Lambda
+`<aws-lambda>` provides an easy way to invoke a AWS Lambda function.
+
+Example usage:
+
+```html
+<aws-app
+   region="eu-west-1">
+</aws-app>
+<aws-lambda
+   id="transformNotes"
+   function-name="transformNotes"
+   on-response="handleResponse">
+</aws-lambda>
+```
+
+The `aws-app` element initializes `AWS` in `aws-lambda`.
+
+JavaScript invoke calls can then be made to the `aws-lambda` object to invoke
+the Lambda function.
+
+```javascript
+this.$.transformNotes.invoke();
+```
 -->
 
 <dom-module id="aws-lambda">
   <script>
-    (function () {
+    (function() {
       'use strict';
 
       /**
@@ -46,7 +69,7 @@ Polymer Web Components for AWS Lambda
            */
           functionName: {
             type: String,
-            value: ''
+            value: '',
           },
 
           /**
@@ -57,7 +80,7 @@ Polymer Web Components for AWS Lambda
           lastResponse: {
             type: Object,
             notify: true,
-            readOnly: true
+            readOnly: true,
           },
 
           /**
@@ -66,15 +89,15 @@ Polymer Web Components for AWS Lambda
           lastError: {
             type: Object,
             notify: true,
-            readOnly: true
+            readOnly: true,
           },
 
           _lambdaRef: {
-            type: Object
-          }
+            type: Object,
+          },
         },
 
-        attached: function () {
+        attached: function() {
           this._lambdaRef = new AWS.Lambda();
         },
 
@@ -91,7 +114,7 @@ Polymer Web Components for AWS Lambda
 
           this._lambdaRef.invoke({
             FunctionName: this.get('functionName'),
-            Payload: JSON.stringify(payload)
+            Payload: JSON.stringify(payload),
           }, this._handleResponse.bind(this));
         },
 
@@ -100,7 +123,7 @@ Polymer Web Components for AWS Lambda
           this._setLastResponse(response);
 
           this.fire('response', response);
-        }
+        },
       });
     })();
   </script>

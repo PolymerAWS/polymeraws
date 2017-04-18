@@ -1,33 +1,29 @@
+<!DOCTYPE html>
+
 <link rel="import" href="../polymer/polymer.html">
 
 <!--
-`aws-dynamodb`
-Polymer Web Component for AWS DynamoDB
--->
+`<aws-dynamodb>` provides an easy way to retrieve and update AWS DynamoDB data.
 
+Example usage:
+
+```html
+<aws-app
+     region="eu-west-1">
+</aws-app>
+<aws-dynamodb
+     table-name="notes"
+     data="{{data}}">
+</aws-dynamodb>
+```
+
+The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
+-->
 <dom-module id="aws-dynamodb">
   <script>
-    (function () {
+    (function() {
       'use strict';
 
-      /**
-       * The `aws-dynamodb` element is an easy way to retrieve and update
-       * AWS DynamoDB data.
-       *
-       * Example usage:
-       *
-       * ```html
-       * <aws-app
-       *      region="eu-west-1">
-       * </aws-app>
-       * <aws-dynamodb
-       *      table-name="notes"
-       *      data="{{data}}">
-       * </aws-dynamodb>
-       * ```
-       *
-       * The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
-       */
       Polymer({
         is: 'aws-dynamodb',
 
@@ -55,7 +51,7 @@ Polymer Web Component for AWS DynamoDB
            */
           auto: {
             type: Boolean,
-            value: false
+            value: false,
           },
 
           /**
@@ -80,7 +76,7 @@ Polymer Web Component for AWS DynamoDB
            */
           conditions: {
             type: Array,
-            value: []
+            value: [],
           },
 
           /**
@@ -95,7 +91,7 @@ Polymer Web Component for AWS DynamoDB
            */
           consistentRead: {
             type: Boolean,
-            value: false
+            value: false,
           },
 
           /**
@@ -106,7 +102,7 @@ Polymer Web Component for AWS DynamoDB
            */
           data: {
             type: Object,
-            notify: true
+            notify: true,
           },
 
           /**
@@ -118,7 +114,7 @@ Polymer Web Component for AWS DynamoDB
            */
           filterExpression: {
             type: String,
-            value: ''
+            value: '',
           },
 
           /**
@@ -129,7 +125,7 @@ Polymer Web Component for AWS DynamoDB
            */
           formatData: {
             type: Boolean,
-            value: false
+            value: false,
           },
 
           /**
@@ -140,7 +136,7 @@ Polymer Web Component for AWS DynamoDB
            */
           indexName: {
             type: String,
-            value: ''
+            value: '',
           },
 
           /**
@@ -148,7 +144,7 @@ Polymer Web Component for AWS DynamoDB
            */
           limit: {
             type: Number,
-            value: 100
+            value: 100,
           },
 
           /**
@@ -161,7 +157,7 @@ Polymer Web Component for AWS DynamoDB
           operation: {
             type: String,
             value: 'scan',
-            observer: '_getData'
+            observer: '_getData',
           },
 
           /**
@@ -171,7 +167,7 @@ Polymer Web Component for AWS DynamoDB
            */
           reverseOrder: {
             type: Boolean,
-            value: false
+            value: false,
           },
 
           /**
@@ -181,25 +177,25 @@ Polymer Web Component for AWS DynamoDB
            */
           tableName: {
             type: String,
-            value: ''
+            value: '',
           },
 
           _dynamoDBRef: {
             type: Object,
-            observer: '_getData'
+            observer: '_getData',
           },
 
           _lastEvaluatedKey: {
-            type: Object
+            type: Object,
           },
 
           _params: {
-            type: Object
-          }
+            type: Object,
+          },
         },
 
         observers: [
-          '_computeParams(tableName, limit, reverseOrder, indexName, conditions, filterExpression)'
+          '_computeParams(tableName, limit, reverseOrder, indexName, conditions, filterExpression)',
         ],
 
         attached: function() {
@@ -244,7 +240,7 @@ Polymer Web Component for AWS DynamoDB
         insertRecord: function(record) {
           var params = {
             Item: this._generateInsertItem(record),
-            TableName: this.tableName
+            TableName: this.tableName,
           };
 
           this._dynamoDBRef.putItem(
@@ -296,7 +292,7 @@ Polymer Web Component for AWS DynamoDB
             TableName: this.tableName,
             ExpressionAttributeNames: expressionAttributes.names,
             ExpressionAttributeValues: expressionAttributes.values,
-            UpdateExpression: expressionAttributes.expression
+            UpdateExpression: expressionAttributes.expression,
           };
           this._dynamoDBRef.updateItem(
             params,
@@ -309,19 +305,19 @@ Polymer Web Component for AWS DynamoDB
 
           switch (typeof value) {
             case 'array':
-              substitution = { L: value };
+              substitution = {L: value};
               break;
             case 'object':
-              substitution = { M: value };
+              substitution = {M: value};
               break;
             case 'string':
-              substitution = { S: value.toString() };
+              substitution = {S: value.toString()};
               break;
             case 'number':
-              substitution = { N: value.toString() };
+              substitution = {N: value.toString()};
               break;
             case 'boolean':
-              substitution = { BOOL: value };
+              substitution = {BOOL: value};
               break;
           }
 
@@ -333,7 +329,7 @@ Polymer Web Component for AWS DynamoDB
             this.set('_params', {
               ConsistentRead: this.consistentRead,
               Limit: limit,
-              TableName: table
+              TableName: table,
             });
 
             if (index !== '') {
@@ -364,7 +360,7 @@ Polymer Web Component for AWS DynamoDB
           var conditionParams = {
             names: {},
             values: {},
-            expression: ''
+            expression: '',
           };
           var key;
           var name;
@@ -372,22 +368,24 @@ Polymer Web Component for AWS DynamoDB
           var condition;
 
           for (var item in conditions) {
-            condition = conditions[item];
-            key = Object.keys(condition)[0];
+            if (conditions.hasOwnProperty(item)) {
+              condition = conditions[item];
+              key = Object.keys(condition)[0];
 
-            if (!condition[key].value || !condition[key].condition) {
-              break;
-            }
+              if (!condition[key].value || !condition[key].condition) {
+                break;
+              }
 
-            name = '#' + key;
-            value = ':' + key;
-            conditionParams.names[name] = key;
-            conditionParams.values[value] = this._awsSubstituteValue(condition[key].value);
+              name = '#' + key;
+              value = ':' + key;
+              conditionParams.names[name] = key;
+              conditionParams.values[value] = this._awsSubstituteValue(condition[key].value);
 
-            if (condition[key].condition === 'begins_with') {
-              conditionParams.expression += 'begins_with(' + name + ', ' + value + ') AND ';
-            } else {
-              conditionParams.expression += name + ' ' + condition[key].condition + ' ' + value + ' AND ';
+              if (condition[key].condition === 'begins_with') {
+                conditionParams.expression += 'begins_with(' + name + ', ' + value + ') AND ';
+              } else {
+                conditionParams.expression += name + ' ' + condition[key].condition + ' ' + value + ' AND ';
+              }
             }
           }
 
@@ -398,10 +396,13 @@ Polymer Web Component for AWS DynamoDB
         },
 
         _generateInsertItem: function(data) {
-          var item, result = {};
+          var item = {};
+          var result = {};
 
           for (item in data) {
-            result[item] = this._awsSubstituteValue(data[item]);
+            if (data.hasOwnProperty(item)) {
+              result[item] = this._awsSubstituteValue(data[item]);
+            }
           }
 
           return result;
@@ -412,7 +413,9 @@ Polymer Web Component for AWS DynamoDB
           var result = {};
 
           for (key in keys) {
-            result[key] = this._awsSubstituteValue(keys[key]);
+            if (keys.hasOwnProperty(key)) {
+              result[key] = this._awsSubstituteValue(keys[key]);
+            }
           }
 
           return result;
@@ -425,9 +428,11 @@ Polymer Web Component for AWS DynamoDB
           var expression = 'SET ';
 
           for (item in changes) {
-            substituteTokens['#' + item] = item;
-            substituteValues[':' + item] = this._awsSubstituteValue(changes[item]);
-            expression += '#' + item + ' = :' + item + ', ';
+            if (changes.hasOwnProperty(item)) {
+              substituteTokens['#' + item] = item;
+              substituteValues[':' + item] = this._awsSubstituteValue(changes[item]);
+              expression += '#' + item + ' = :' + item + ', ';
+            }
           }
 
           expression = expression.slice(0, -2);
@@ -435,8 +440,8 @@ Polymer Web Component for AWS DynamoDB
           return {
             expression: expression,
             names: substituteTokens,
-            values: substituteValues
-          }
+            values: substituteValues,
+          };
         },
 
         _getData: function() {
@@ -449,7 +454,7 @@ Polymer Web Component for AWS DynamoDB
           if (error) {
             this.fire('error', {
               source: 'insertRecord',
-              error: error
+              error: error,
             });
             return;
           }
@@ -479,7 +484,7 @@ Polymer Web Component for AWS DynamoDB
           if (error) {
             this.fire('error', {
               source: 'updateRecord',
-              error: error
+              error: error,
             });
             return;
           }
@@ -496,24 +501,26 @@ Polymer Web Component for AWS DynamoDB
           var parsed = {};
 
           for (var j in item) {
-            var type = Object.keys(item[j])[0];
-            parsed[j] = item[j][type];
+            if (item.hasOwnProperty(j)) {
+              var type = Object.keys(item[j])[0];
+              parsed[j] = item[j][type];
 
-            if (type === 'N') {
-              parsed[j] = parseFloat(item[j].N);
-            }
+              if (type === 'N') {
+                parsed[j] = parseFloat(item[j].N);
+              }
 
-            if (type === 'BOOL') {
-              if (item[j].BOOL === 'true' || item[j].BOOL === true) {
-                parsed[j] = true;
-              } else {
-                parsed[j] = false;
+              if (type === 'BOOL') {
+                if (item[j].BOOL === 'true' || item[j].BOOL === true) {
+                  parsed[j] = true;
+                } else {
+                  parsed[j] = false;
+                }
               }
             }
           }
 
           return parsed;
-        }
+        },
       });
     })();
   </script>
