@@ -81,10 +81,6 @@ this.$.transformNotes.invoke();
           },
         },
 
-        attached: function() {
-          this._lambdaRef = new AWS.Lambda();
-        },
-
         /**
          * Invokes the Lambda function
          *
@@ -92,6 +88,8 @@ this.$.transformNotes.invoke();
          * payload is specified, the function will be invoked without a payload.
          */
         invoke: function(payload) {
+          this._lambdaRef = new AWS.Lambda();
+
           if (this.get('functionName') === '') {
             throw new Error('No function name is set');
           }
