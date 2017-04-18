@@ -148,7 +148,10 @@ Example usage:
        * defined before accepting the global AWS region.
        */
       _initCognito: function() {
-        AWSCognito.config.region = AWSCognito.region || this.region || AWS.config.region;
+        // FIXME: apparent race condition when `!awsCognito.region`
+        // See how polymerfire does it in `<firebase-app>`
+        AWSCognito.config.region = this.region ? this.region : AWSCognito.config.region ||
+                                                               AWS.config.region;
       },
 
       /**
@@ -445,8 +448,6 @@ Example usage:
 
             credentials.refresh((error) => {
               if (error) {
-                console.error(`${error.message} while refreshing credentials`);
-                console.log(credentials, cognitoUser, cognitoSession, error);
                 reject(error);
               }
               else {
@@ -535,7 +536,12 @@ Example usage:
             this._shouldRefreshUser = this.noAutoRefresh ? false : true;
             resolve({message: 'Successfully logged In', username: username});
           })
-          .catch((error) => this._handleError(error));
+          .catch((error) => {
+            this._handleError(error);
+            this.dispatchEvent(new CustomEvent('login-failure', {
+              detail: error,
+            }));
+          });
         });
       },
 
