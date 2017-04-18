@@ -17,6 +17,10 @@ Example usage:
 </aws-dynamodb>
 ```
 
+This fetches the `data` object from the `notes` table in the DynamoDB
+database and exposes it to the Polymer databinding system. Changes to
+`data` will likewise be sent back and stored.
+
 The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
 -->
 <dom-module id="aws-dynamodb">
