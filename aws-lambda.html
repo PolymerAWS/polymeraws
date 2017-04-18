@@ -92,6 +92,16 @@ this.$.transformNotes.invoke();
             readOnly: true,
           },
 
+          /**
+           * Lambda Invocation type
+           */
+          invocationType: String,
+
+          /**
+           * Lambda Log type
+           */
+          logType: String,
+
           _lambdaRef: {
             type: Object,
           },
@@ -112,10 +122,15 @@ this.$.transformNotes.invoke();
             throw new Error('No function name is set');
           }
 
-          this._lambdaRef.invoke({
+          var params = {
             FunctionName: this.get('functionName'),
             Payload: JSON.stringify(payload),
-          }, this._handleResponse.bind(this));
+          };
+
+          params.InvocationType = this.invocationType ? this.invocationType : null;
+          params.LogType = this.logType ? this.logType : null;
+
+          this._lambdaRef.invoke(params, this._handleResponse.bind(this));
         },
 
         _handleResponse: function(error, response) {
