@@ -261,7 +261,7 @@ Example usage:
 
         else {
           // Tell AWS SDK about the newly logged in user
-          const url = `cognito-idp.${this.region}.amazonaws.com/${this.userPoolId}`;
+          const url = `cognito-idp.${AWSCognito.config.region}.amazonaws.com/${this.userPoolId}`;
           let params = {};
               params.IdentityPoolId = this.identityPoolId;
               params.Logins = {};
