@@ -223,6 +223,7 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
 
         attached: function() {
           this._dynamoDBRef = new AWS.DynamoDB();
+          this._getData();
         },
 
         /**
@@ -332,8 +333,8 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
         },
 
         _autoChanged: function(nv, ov) {
-          if(nv && !ov) {
-            this.getData();
+          if (this._readied) {
+            this._getData();
           }
         },
 
