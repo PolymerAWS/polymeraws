@@ -57,6 +57,7 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
           auto: {
             type: Boolean,
             value: false,
+            observer: '_autoChanged',
           },
 
           /**
@@ -185,6 +186,15 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
             value: '',
           },
 
+          /**
+           * If true, `aws-dynamodb` will not try to update it's internal copy
+           * of AWS credentials before each operation.
+           */
+          noAutoRefreshCredentials: {
+            type: Boolean,
+            value: false,
+          },
+
           _dynamoDBRef: {
             type: Object,
             observer: '_getData',
@@ -230,6 +240,7 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
           }
 
           if (this._dynamoDBRef && this._params) {
+            this._refreshCredentials();
             this._dynamoDBRef[this.operation](
               this._params,
               this._handleResponse.bind(this)
@@ -251,6 +262,7 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
          * @param   {Object} record The record that should be added to the table.
          */
         insertRecord: function(record) {
+          this._refreshCredentials();
           var params = {
             Item: this._generateInsertItem(record),
             TableName: this.tableName,
@@ -272,6 +284,7 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
          * and false if there is no next page.
          */
         nextPage: function() {
+          this._refreshCredentials();
           if (this._lastEvaluatedKey !== null) {
             this.set('_params.ExclusiveStartKey', this._lastEvaluatedKey);
             this._getData();
@@ -298,6 +311,7 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
          * @param   {Object} changes The changes for the record.
          */
         updateRecord: function(index, changes) {
+          this._refreshCredentials();
           var expressionAttributes = this._generateUpdateConditions(changes);
 
           var params = {
@@ -311,6 +325,12 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
             params,
             this._handleUpdateResponse.bind(this)
           );
+        },
+
+        _autoChanged: function(nv, ov) {
+          if(nv && !ov) {
+            this.getData();
+          }
         },
 
         _awsSubstituteValue: function(value) {
@@ -460,6 +480,12 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
         _getData: function() {
           if (this.auto) {
             this.getData();
+          }
+        },
+
+        _refreshCredentials: function() {
+          if (!this.noAutoRefreshCredentials && this._dynamoDBRef) {
+            this._dynamoDBRef.config.credentials = AWS.config.credentials;
           }
         },
 
