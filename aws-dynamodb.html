@@ -61,7 +61,7 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
           },
 
           /**
-           * Conditions to use when requesting data
+           * Conditions to use when requesting data.
            *
            * This array should contain all attributes with their value and condition as objects.
            *
@@ -86,7 +86,7 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
           },
 
           /**
-           * Whether to use consistent reads or not
+           * Whether to use consistent reads or not.
            *
            * By default the operations will use eventually consistent reads; therefore,
            * the result set might not include the changes to data in the table immediatly
@@ -101,10 +101,10 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
           },
 
           /**
-           * Operation's response
+           * Operation's response.
            *
            * This will be update every time the operation or query changes, changes
-           * to this object will result in updates inside the database
+           * to this object will result in updates inside the database.
            */
           data: {
             type: Object,
@@ -112,9 +112,9 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
           },
 
           /**
-           * The filter expression to add to the request
+           * The filter expression to add to the request.
            *
-           * Always the key and value in the conditions object
+           * Always the key and value in the conditions object.
            *
            * For more info: [AWS documentation](http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/QueryAndScan.html#FilteringResults)
            */
@@ -124,7 +124,7 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
           },
 
           /**
-           * Whether data response data should be parsed or not
+           * Whether data response data should be parsed or not.
            *
            * If this is true the returned data will not contain the attribute types:
            * `S, N, B, SS, NS, BS, M, L, NULL, BOOL`.
@@ -135,7 +135,7 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
           },
 
           /**
-           * The secondary index to scan or query
+           * The secondary index to scan or query.
            *
            * If this is not specified the query will use the primary index of the
            * table.
@@ -146,7 +146,7 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
           },
 
           /**
-           * The maximum number of records to retrieve for a scan or query
+           * The maximum number of records to retrieve for a scan or query.
            */
           limit: {
             type: Number,
@@ -154,7 +154,7 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
           },
 
           /**
-           * The operation which is used for getting items from the DynamoDB
+           * The operation which is used for getting items from the DynamoDB.
            *
            * The only accepted values are `scan` and `query`.
            *
@@ -167,7 +167,7 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
           },
 
           /**
-           * Specify the order for index traversal
+           * Specify the order for index traversal.
            *
            * If `true`, the traversal is performed in descending order.
            */
@@ -177,7 +177,7 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
           },
 
           /**
-           * The name of the DynamoDB Table
+           * The name of the DynamoDB Table.
            *
            * For example: 'notes'
            */
@@ -193,6 +193,16 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
           noAutoRefreshCredentials: {
             type: Boolean,
             value: false,
+          },
+
+          /**
+           * True when awaiting a query response from DynamoDB.
+           */
+          querying: {
+            type: Boolean,
+            readOnly: true,
+            value: false,
+            notify: true,
           },
 
           _dynamoDBRef: {
@@ -250,6 +260,7 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
               this._log.warn('Tried to query without conditions');
               return;
             }
+            this._setQuerying(true);
             this._dynamoDBRef[this.operation](
               this._params,
               this._handleResponse.bind(this)
@@ -515,6 +526,7 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
         },
 
         _handleResponse: function(error, data) {
+          this._setQuerying(false);
           if (error) {
             throw new Error('Could not retrieve data from DynamoDB because: ' + error);
           }
