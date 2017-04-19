@@ -22,7 +22,8 @@
   "dependencies": {
     "polymer": "Polymer/polymer#^1.4.0",
     "aws-sdk": "aws-sdk-js#^2.6.11",
-    "amazon-cognito-identity-js": "amazon-cognito-identity-js#^1.16.0"
+    "amazon-cognito-identity-js": "amazon-cognito-identity-js#^1.16.0",
+    "log-behavior": "bennypowers/log-behavior#^0.9.2"
   },
   "devDependencies": {
     "iron-component-page": "PolymerElements/iron-component-page#^1.0.0",

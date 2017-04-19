@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../log-behavior/log-behavior.html">
 <link rel="import" href="./aws-cognito-script.html">
 
 <!--
@@ -87,8 +88,12 @@ Example usage:
         },
       },
 
+      behaviors: [
+        PolymerElements.LogBehavior,
+      ],
+
       ready: function() {
-        console.debug(`${this.localName} is ready`);
+        this._log.debug(this.localName + ' is ready');
         this._initCognito();
       },
 
@@ -113,7 +118,7 @@ Example usage:
         if (!nv && ov) {
           // Was true, now false i.e. stop refreshing
           if (this._refreshCognitoUserIntervalRef) {
-            console.debug(`Clearing user refresh interval`);
+            this._log.debug(`Clearing user refresh interval`);
             clearInterval(this._refreshCognitoUserIntervalRef);
           }
           this._refreshCognitoUserIntervalRef = undefined;
@@ -124,19 +129,19 @@ Example usage:
             const userPool = this._getCognitoUserPool();
             const cognitoUser = userPool.getCurrentUser();
             if (cognitoUser) {
-              console.info(`Trying to keep user ${cognitoUser.username} fresh`);
+              this._log.info(`Trying to keep user ${cognitoUser.username} fresh`);
               this._recoverUser(cognitoUser)
               .then((successBool) => {
                 if (successBool) {
                   let expiry = AWS.config.credentials.expireTime;
-                  console.debug(`Credential Expiry: ${expiry}`);
+                  this._log.debug(`Credential Expiry: ${expiry}`);
                 }
                 })
-              .catch((error) => console.error(error));
+              .catch((error) => this._log.error(error));
             }
           };
           let time = this.refreshUserInterval;
-          console.debug(`Setting user refresh interval at ${time} minutes`);
+          this._log.debug(`Setting user refresh interval at ${time} minutes`);
           this._refreshCognitoUserIntervalRef = setInterval(refreshCallback,
             this.refreshUserInterval * 1000 * 60);
         }
@@ -150,8 +155,8 @@ Example usage:
       _initCognito: function() {
         // FIXME: apparent race condition when `!awsCognito.region`
         // See how polymerfire does it in `<firebase-app>`
-        AWSCognito.config.region = this.region ? this.region : AWSCognito.config.region ||
-                                                               AWS.config.region;
+        AWSCognito.config.region = this.region ? this.region :
+                                   AWSCognito.config.region ||AWS.config.region;
       },
 
       /**
@@ -202,7 +207,7 @@ Example usage:
        *                                      the Cognito session.
        */
       _getCognitoSession: function(cognitoUser) {
-        console.info(`Trying to get Cognito session for ${cognitoUser.username}`);
+        this._log.info(`Trying to get Cognito session for ${cognitoUser.username}`);
         // TODO: Use Amazon's promise method. https://aws.amazon.com/blogs/developer/support-for-promises-in-the-sdk/
         return new Promise((resolve, reject) => {
           if (!cognitoUser) {
@@ -225,7 +230,7 @@ Example usage:
        */
       _getCognitoAttributes: function(cognitoUser) {
         let name = cognitoUser.username;
-        console.info(`Trying to get Cognito attributes for ${name}`);
+        this._log.info(`Trying to get Cognito attributes for ${name}`);
         // TODO: Use Amazon's promise method. https://aws.amazon.com/blogs/developer/support-for-promises-in-the-sdk/
         return new Promise((resolve, reject) => {
           if (!cognitoUser) {
@@ -247,7 +252,7 @@ Example usage:
        *                                          the generated credentials.
        */
       _getCognitoCredentials: function(cognitoUser, cognitoSession) {
-        console.info(`Trying to get credentials for ${cognitoUser.username}`);
+        this._log.info(`Trying to get credentials for ${cognitoUser.username}`);
 
         if (!cognitoUser) {
           throw new Error( `No Cognito user found while trying to get credentials` );
@@ -282,7 +287,7 @@ Example usage:
        *                            AWS Cognito's success message.
        */
       _confirmRegistration: function(username, code) {
-        console.info(`Trying to confirm registration of ${username}`);
+        this._log.info(`Trying to confirm registration of ${username}`);
         const userPool = this._getCognitoUserPool();
         const cognitoUser = this._getCognitoUser(username, userPool);
         // TODO: Use Amazon's promise method. https://aws.amazon.com/blogs/developer/support-for-promises-in-the-sdk/
@@ -302,7 +307,7 @@ Example usage:
        *                                          the code delivery details.
        */
       _resendVerificationCode: function(username) {
-        console.info(`Trying to resend confirmation code for ${username}`);
+        this._log.info(`Trying to resend confirmation code for ${username}`);
         const userPool = this._getCognitoUserPool();
         const cognitoUser = this._getCognitoUser(username, userPool);
         // TODO: Use Amazon's promise method. https://aws.amazon.com/blogs/developer/support-for-promises-in-the-sdk/
@@ -323,7 +328,7 @@ Example usage:
        *                                    the Cognito session.
        */
       _authenticateUser: function(username, password) {
-        console.info(`Trying to authenticate user ${username}`);
+        this._log.info(`Trying to authenticate user ${username}`);
         const authenticationData = {
           Username: username,
           Password: password,
@@ -380,7 +385,7 @@ Example usage:
         if (!AWS.config.credentials) {
           throw new Error( `No Cognito user credentials found while dispatching user` );
         }
-        console.info(`Dispatching Cognito user ${cognitoUser.username}`);
+        this._log.info(`Dispatching Cognito user ${cognitoUser.username}`);
 
         let detail = {};
         detail.username = cognitoUser.username;
@@ -406,7 +411,7 @@ Example usage:
         if (!attributes) {
           throw new Error( `No Cognito attributes found while dispatching attributes` );
         }
-        console.info(`Dispatching Cognito attributes`);
+        this._log.info(`Dispatching Cognito attributes`);
         let formattedAttributes = {};
         if (attributes && attributes.length) {
           // Loop through provided attributes and
@@ -434,7 +439,7 @@ Example usage:
        *                                        the user's Cognito credentials.
        */
       refreshCognitoCredentials: function(cognitoUser, cognitoSession) {
-        console.info(`Trying to refresh credentials for ${cognitoUser.username}`);
+        this._log.info(`Trying to refresh credentials for ${cognitoUser.username}`);
         // TODO: Use Amazon's promise method. https://aws.amazon.com/blogs/developer/support-for-promises-in-the-sdk/
         return new Promise((resolve, reject) => {
           if (!cognitoUser) {
@@ -451,7 +456,7 @@ Example usage:
                 reject(error);
               }
               else {
-                console.info(`Updating credentials on global AWS.config`);
+                this._log.info(`Updating credentials on global AWS.config`);
                 AWS.config.credentials = credentials;
                 resolve(cognitoUser, cognitoSession, credentials);
               }
@@ -469,7 +474,7 @@ Example usage:
        *                                     the Cognito session.
        */
       signup: function(username, password) {
-        console.info(`Trying to sign up ${username}`);
+        this._log.info(`Trying to sign up ${username}`);
         const userPool = this._getCognitoUserPool();
         let attributeList = [];
 
@@ -519,7 +524,7 @@ Example usage:
        *         an object containing a success message and the username.
        */
       login: function(username, password) {
-        console.info(`Trying to login ${username}`);
+        this._log.info(`Trying to login ${username}`);
         // TODO: Use Amazon's promise method. https://aws.amazon.com/blogs/developer/support-for-promises-in-the-sdk/
         return new Promise((resolve, reject) => {
           const userPool = this._getCognitoUserPool();
@@ -552,7 +557,7 @@ Example usage:
        * @param  {CognitoUser} cognitoUser The Cognito user.
        */
       logout: function(cognitoUser) {
-        console.info(`Logging out user ${cognitoUser.username}`);
+        this._log.info(`Logging out user ${cognitoUser.username}`);
         this._shouldRefreshUser = false;
         cognitoUser.signOut();
         cognitoUser = null;
@@ -567,17 +572,17 @@ Example usage:
        *                            Cognito's error message if recovery failed.
        */
       tryRecoverUser: function() {
-        console.info(`Trying to recover Cognito user session`);
+        this._log.info(`Trying to recover Cognito user session`);
         const userPool = this._getCognitoUserPool();
         const cognitoUser = userPool.getCurrentUser();
         // TODO: Use Amazon's promise method. https://aws.amazon.com/blogs/developer/support-for-promises-in-the-sdk/
         return new Promise((resolve, reject) => {
           if (!cognitoUser) {
             let msg = 'No Cognito user found while trying to recover';
-            console.info(msg);
+            this._log.info(msg);
             resolve(msg);
           } else {
-            console.info( `Cognito user ${cognitoUser.username} found. Trying to recover` );
+            this._log.info( `Cognito user ${cognitoUser.username} found. Trying to recover` );
             this._recoverUser(cognitoUser)
             .then(() =>
               this._shouldRefreshUser = !this.noAutoRefresh ? true : false

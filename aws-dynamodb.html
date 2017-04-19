@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 
 <link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../log-behavior/log-behavior.html">
 
 <!--
 `<aws-dynamodb>` provides an easy way to retrieve and update AWS DynamoDB data.
@@ -196,6 +197,14 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
           _params: {
             type: Object,
           },
+        },
+
+        behaviors: [
+          PolymerElements.LogBehavior,
+        ],
+
+        ready: function() {
+          this._log.debug(this.localName + ' is ready');
         },
 
         observers: [

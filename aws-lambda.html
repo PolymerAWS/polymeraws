@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 
 <link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../log-behavior/log-behavior.html">
 
 <!--
 `<aws-lambda>` provides an easy way to invoke a AWS Lambda function.
@@ -79,6 +80,14 @@ this.$.transformNotes.invoke();
           _lambdaRef: {
             type: Object,
           },
+        },
+
+        behaviors: [
+          PolymerElements.LogBehavior,
+        ],
+
+        ready: function() {
+          this._log.debug(this.localName + ' is ready');
         },
 
         /**
