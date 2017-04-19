@@ -241,6 +241,10 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
 
           if (this._dynamoDBRef && this._params) {
             this._refreshCredentials();
+            if (this.operation == 'query' && !this.conditions.length) {
+              this._log.warn('Tried to query without conditions');
+              return;
+            }
             this._dynamoDBRef[this.operation](
               this._params,
               this._handleResponse.bind(this)
