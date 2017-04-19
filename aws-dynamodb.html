@@ -222,7 +222,11 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
         ],
 
         attached: function() {
-          this._dynamoDBRef = new AWS.DynamoDB();
+          if (this.formatData) {
+            this._dynamoDBRef = new AWS.DynamoDB.DocumentClient();
+          } else {
+            this._dynamoDBRef = new AWS.DynamoDB();
+          }
           this._getData();
         },
 
@@ -359,7 +363,7 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
               break;
           }
 
-          return substitution;
+          return this.formatData ? value : substitution;
         },
 
         _computeParams: function(table, limit, traversal, index, conditions, filter) {
@@ -490,7 +494,11 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
 
         _refreshCredentials: function() {
           if (!this.noAutoRefreshCredentials && this._dynamoDBRef) {
-            this._dynamoDBRef.config.credentials = AWS.config.credentials;
+            if (this.formatData) {
+              this._dynamoDBRef.service.config.credentials = AWS.config.credentials;
+            } else {
+              this._dynamoDBRef.config.credentials = AWS.config.credentials;
+            }
           }
         },
 
@@ -510,18 +518,8 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
           if (error) {
             throw new Error('Could not retrieve data from DynamoDB because: ' + error);
           }
-
           this.set('_lastEvaluatedKey', data.LastEvaluatedKey);
-
-          if (this.formatData) {
-            for (var i = 0, length = data.Items.length; i < length; i++) {
-              data.Items[i] = this._parseItem(data.Items[i]);
-            }
-
-            this.set('data', data.Items);
-          } else {
-            this.set('data', data.Items);
-          }
+          this.set('data', data.Items);
         },
 
         _handleUpdateResponse: function(error, data) {
