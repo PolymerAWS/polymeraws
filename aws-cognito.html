@@ -131,12 +131,12 @@ Example usage:
             if (cognitoUser) {
               this._log.info(`Trying to keep user ${cognitoUser.username} fresh`);
               this._recoverUser(cognitoUser)
-              .then((successBool) => {
-                if (successBool) {
-                  let expiry = AWS.config.credentials.expireTime;
+              .then((credentials, cognitoUser, cognitoSession) => {
+                if (credentials && cognitoUser && cognitoSession) {
+                  let expiry = credentials.expireTime;
                   this._log.debug(`Credential Expiry: ${expiry}`);
                 }
-                })
+              })
               .catch((error) => this._log.error(error));
             }
           };
@@ -248,8 +248,7 @@ Example usage:
        *
        * @param  {CognitoUser}     cognitoUser    The Cognito user,
        * @param  {CognitoSession}  cognitoSession The session,
-       * @return {Promise.<CognitoCredentials>}   A promise that resolves to
-       *                                          the generated credentials.
+       * @return {CognitoCredentials}             The generated credentials.
        */
       _getCognitoCredentials: function(cognitoUser, cognitoSession) {
         this._log.info(`Trying to get credentials for ${cognitoUser.username}`);
@@ -356,16 +355,45 @@ Example usage:
        *                                   refreshed..
        */
       _recoverUser: function(cognitoUser) {
-        // TODO: Use Amazon's promise method. https://aws.amazon.com/blogs/developer/support-for-promises-in-the-sdk/
         return new Promise((resolve, reject) => {
           this._getCognitoSession(cognitoUser)
           .then((cognitoSession) =>
-            this.refreshCognitoCredentials(cognitoUser, cognitoSession))
-          .then((cognitoUser) => this._dispatchCognitoUser(cognitoUser))
-          .then((cognitoUser) => this._getCognitoAttributes(cognitoUser))
-          .then((attributes) => this._dispatchCognitoUserAttributes(attributes))
-          .then(() => resolve(true))
+            this._refreshCognitoCredentials(cognitoUser, cognitoSession))
+          .then((credentials, cognitoUser, cognitoSession) =>
+            resolve(credentials, cognitoUser, cognitoSession))
           .catch((error) => reject(error));
+        });
+      },
+
+      /**
+       * Refreshes the user's Cognito credentials.
+       *
+       * @param  {CognitoUser}                   cognitoUser     The Cognito user.
+       * @param  {CognitoSession}                cognitoSession  The session.
+       * @return {Promise.<CognitoCredentials>} A promise that resolves to
+       *                                        the user's Cognito credentials.
+       */
+      _refreshCognitoCredentials: function(cognitoUser, cognitoSession) {
+        this._log.debug(`Trying to refresh credentials for ${cognitoUser.username}`);
+        // TODO: Use Amazon's promise method. https://aws.amazon.com/blogs/developer/support-for-promises-in-the-sdk/
+        return new Promise((resolve, reject) => {
+          if (!cognitoUser) {
+            reject(new Error( `No Cognito user found while trying to refresh credentials` )); }
+          if (!cognitoSession) {
+            reject(new Error( `No Cognito session found while trying to refresh credentials` ));
+          }
+          else {
+            const credentials = this._getCognitoCredentials(cognitoUser, cognitoSession); // eslint-disable-line
+            credentials.refresh((error) => {
+              if (error) {
+                reject(error);
+              } else {
+                this._log.debug(`Updating credentials on global AWS.config`);
+                AWS.config.credentials = credentials;
+                resolve(credentials);
+              }
+            });
+          }
         });
       },
 
@@ -431,38 +459,23 @@ Example usage:
       },
 
       /**
-       * Refreshes the user's Cognito credentials.
-       *
-       * @param  {CognitoUser}                   cognitoUser     The Cognito user.
-       * @param  {CognitoSession}                cognitoSession  The session.
-       * @return {Promise.<CognitoCredentials>} A promise that resolves to
-       *                                        the user's Cognito credentials.
+       * Dispatches an event containing the refreshed credentials object.
+       * @param  {CognitoCredentials} credentials    The credentials object
+       * @param  {CognitoUser}        cognitoUser     The Cognito user.
+       * @param  {CognitoSession}     cognitoSession  The session.
+       * @fires  credentials-updated
        */
-      refreshCognitoCredentials: function(cognitoUser, cognitoSession) {
-        this._log.info(`Trying to refresh credentials for ${cognitoUser.username}`);
-        // TODO: Use Amazon's promise method. https://aws.amazon.com/blogs/developer/support-for-promises-in-the-sdk/
-        return new Promise((resolve, reject) => {
-          if (!cognitoUser) {
-            reject(new Error( `No Cognito user found while trying to refresh credentials` )); }
-          if (!cognitoSession) {
-            reject(new Error( `No Cognito session found while trying to refresh credentials` ));
-          }
-          else {
-            const credentials =
-              this._getCognitoCredentials(cognitoUser, cognitoSession);
-
-            credentials.refresh((error) => {
-              if (error) {
-                reject(error);
-              }
-              else {
-                this._log.info(`Updating credentials on global AWS.config`);
-                AWS.config.credentials = credentials;
-                resolve(cognitoUser, cognitoSession, credentials);
-              }
-            });
-          }
+      _dispatchCredentials: function(credentials, cognitoUser, cognitoSession) {
+        if (!credentials) {
+          throw new Error('No credentials found while dispatching credentials');
+        }
+        this._log.debug('Dispatching Cognito credentials');
+        const cognitoCredentials = new CustomEvent('cognito-credentials', {
+          detail: {credentials, cognitoUser, cognitoSession},
+          bubbles: true,
+          composed: true,
         });
+        this.dispatchEvent(cognitoCredentials);
       },
 
       /**
@@ -532,7 +545,7 @@ Example usage:
           this._authenticateUser(username, password)
           .then(() => this._getCognitoSession(cognitoUser))
           .then((cognitoSession) =>
-            this.refreshCognitoCredentials(cognitoUser, cognitoSession)
+            this._refreshCognitoCredentials(cognitoUser, cognitoSession)
           ).then((cognitoUser) => this._dispatchCognitoUser(cognitoUser))
           .then((cognitoUser) => this._getCognitoAttributes(cognitoUser))
           .then((attributes) => this._dispatchCognitoUserAttributes(attributes))
@@ -571,7 +584,7 @@ Example usage:
        * @return {Promise.<Error>}  A promise that rejects with
        *                            Cognito's error message if recovery failed.
        */
-      tryRecoverUser: function() {
+      recoverUser: function() {
         this._log.info(`Trying to recover Cognito user session`);
         const userPool = this._getCognitoUserPool();
         const cognitoUser = userPool.getCurrentUser();
@@ -579,15 +592,44 @@ Example usage:
         return new Promise((resolve, reject) => {
           if (!cognitoUser) {
             let msg = 'No Cognito user found while trying to recover';
-            this._log.info(msg);
+            this._log.warn(msg);
             resolve(msg);
           } else {
             this._log.info( `Cognito user ${cognitoUser.username} found. Trying to recover` );
             this._recoverUser(cognitoUser)
-            .then(() =>
-              this._shouldRefreshUser = !this.noAutoRefresh ? true : false
-            ).catch((error) => reject(error));
+            .then(() => this._dispatchCognitoUser(cognitoUser))
+            .then(() => this._getCognitoAttributes(cognitoUser))
+            .then((attributes) => this._dispatchCognitoUserAttributes(attributes))
+            .then(() => this._shouldRefreshUser = !this.noAutoRefresh? true : false)
+            .catch((error) => reject(error));
           }
+        });
+      },
+
+      /**
+       * Refreshes the user's credentials
+       */
+      refreshCredentials: function() {
+        this._log.info('Trying to refresh credentials');
+        const userPool = this._getCognitoUserPool();
+        const cognitoUser = userPool.getCurrentUser();
+        this._getCognitoSession(cognitoUser).then((cognitoSession) => {
+          return new Promise((resolve, reject) => {
+            if (!cognitoUser) {
+              let msg = 'No Cognito user found while trying to refresh credentials';
+              this._log.warn(msg);
+              reject(msg);
+            } else if (!cognitoSession) {
+              let msg = 'No Cognito session found while trying to refresh credentials';
+              this._log.warn(msg);
+              reject(msg);
+            } else {
+              this._refreshCognitoCredentials(cognitoUser, cognitoSession)
+              .then((credentials) =>
+                this._dispatchCredentials(credentials, cognitoUser, cognitoSession))
+              .catch((error) => this._handleError(error));
+            }
+          });
         });
       },
     });
@@ -636,7 +678,14 @@ Example usage:
      */
 
     /**
-     * Fired when user confirmatino succeeds.
+     * Fired when credentials are refreshed
+     *
+     * @event cognito-credentials
+     * @property {Object}       Credentials.
+     */
+
+    /**
+     * Fired when user confirmation succeeds.
      *
      * @event confirm-success
      * @property {Object}       Success message.
