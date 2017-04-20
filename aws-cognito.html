@@ -129,7 +129,7 @@ Example usage:
             const userPool = this._getCognitoUserPool();
             const cognitoUser = userPool.getCurrentUser();
             if (cognitoUser) {
-              this._log.info(`Trying to keep user ${cognitoUser.username} fresh`);
+              this._log.debug(`Trying to keep user ${cognitoUser.username} fresh`);
               this._recoverUser(cognitoUser)
               .then((credentials, cognitoUser, cognitoSession) => {
                 if (credentials && cognitoUser && cognitoSession) {
@@ -207,7 +207,7 @@ Example usage:
        *                                      the Cognito session.
        */
       _getCognitoSession: function(cognitoUser) {
-        this._log.info(`Trying to get Cognito session for ${cognitoUser.username}`);
+        this._log.debug(`Trying to get Cognito session for ${cognitoUser.username}`);
         // TODO: Use Amazon's promise method. https://aws.amazon.com/blogs/developer/support-for-promises-in-the-sdk/
         return new Promise((resolve, reject) => {
           if (!cognitoUser) {
@@ -230,7 +230,7 @@ Example usage:
        */
       _getCognitoAttributes: function(cognitoUser) {
         let name = cognitoUser.username;
-        this._log.info(`Trying to get Cognito attributes for ${name}`);
+        this._log.debug(`Trying to get Cognito attributes for ${name}`);
         // TODO: Use Amazon's promise method. https://aws.amazon.com/blogs/developer/support-for-promises-in-the-sdk/
         return new Promise((resolve, reject) => {
           if (!cognitoUser) {
@@ -251,7 +251,7 @@ Example usage:
        * @return {CognitoCredentials}             The generated credentials.
        */
       _getCognitoCredentials: function(cognitoUser, cognitoSession) {
-        this._log.info(`Trying to get credentials for ${cognitoUser.username}`);
+        this._log.debug(`Trying to get credentials for ${cognitoUser.username}`);
 
         if (!cognitoUser) {
           throw new Error( `No Cognito user found while trying to get credentials` );
@@ -286,7 +286,7 @@ Example usage:
        *                            AWS Cognito's success message.
        */
       _confirmRegistration: function(username, code) {
-        this._log.info(`Trying to confirm registration of ${username}`);
+        this._log.debug(`Trying to confirm registration of ${username}`);
         const userPool = this._getCognitoUserPool();
         const cognitoUser = this._getCognitoUser(username, userPool);
         // TODO: Use Amazon's promise method. https://aws.amazon.com/blogs/developer/support-for-promises-in-the-sdk/
@@ -306,7 +306,7 @@ Example usage:
        *                                          the code delivery details.
        */
       _resendVerificationCode: function(username) {
-        this._log.info(`Trying to resend confirmation code for ${username}`);
+        this._log.debug(`Trying to resend confirmation code for ${username}`);
         const userPool = this._getCognitoUserPool();
         const cognitoUser = this._getCognitoUser(username, userPool);
         // TODO: Use Amazon's promise method. https://aws.amazon.com/blogs/developer/support-for-promises-in-the-sdk/
@@ -327,7 +327,7 @@ Example usage:
        *                                    the Cognito session.
        */
       _authenticateUser: function(username, password) {
-        this._log.info(`Trying to authenticate user ${username}`);
+        this._log.debug(`Trying to authenticate user ${username}`);
         const authenticationData = {
           Username: username,
           Password: password,
@@ -413,7 +413,7 @@ Example usage:
         if (!AWS.config.credentials) {
           throw new Error( `No Cognito user credentials found while dispatching user` );
         }
-        this._log.info(`Dispatching Cognito user ${cognitoUser.username}`);
+        this._log.debug(`Dispatching Cognito user ${cognitoUser.username}`);
 
         let detail = {};
         detail.username = cognitoUser.username;
@@ -437,9 +437,9 @@ Example usage:
        */
       _dispatchCognitoUserAttributes: function(attributes) {
         if (!attributes) {
-          throw new Error( `No Cognito attributes found while dispatching attributes` );
+          throw new Error(`No Cognito attributes found while dispatching attributes`);
         }
-        this._log.info(`Dispatching Cognito attributes`);
+        this._log.debug(`Dispatching Cognito attributes`);
         let formattedAttributes = {};
         if (attributes && attributes.length) {
           // Loop through provided attributes and
