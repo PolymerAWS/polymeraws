@@ -753,6 +753,20 @@ Example usage:
      */
 
     /**
+     * Fired when a user session is successfully restored
+     *
+     * @event restore-session-success
+     * @property {String}  username
+     */
+
+    /**
+     * Fired when a user sesssion fails to restore
+     *
+     * @event restore-session-failure
+     * @property {Object}  Error.
+     */
+
+    /**
      * Fired when credentials are refreshed
      *
      * @event cognito-credentials
