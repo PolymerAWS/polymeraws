@@ -112,6 +112,7 @@ Example usage:
           readOnly: true,
           value: false,
           notify: true,
+          observer: '_loggedInChanged',
         },
 
         /**
@@ -209,7 +210,10 @@ Example usage:
           .then((cognitoSession) =>
             this._refreshCognitoCredentials(cognitoUser, cognitoSession)
           )
-          .then(() => this._setUser(this._getCognitoUser(username, userPool)))
+          .then(() => {
+            this._setIdentityId(AWS.config.credentials.params.IdentityId);
+            this._setUser(this._getCognitoUser(username, userPool));
+          })
           .then(() => this._getCognitoAttributes(cognitoUser))
           .then((attributes) => this._setAttributes(attributes))
           .then(() => {
@@ -239,6 +243,9 @@ Example usage:
         cognitoUser.signOut();
         AWS.config.credentials = {};
         cognitoUser = null;
+        this.loggedIn = false;
+        this._setIdentityId(null);
+        this._setLoggedIn(false);
         this._dispatchCognitoUser({username: null});
       },
 
@@ -267,7 +274,10 @@ Example usage:
               this.dispatchEvent(new CustomEvent('restore-session-success', {detail: username}));
               this._shouldRefreshUser = !this.noAutoRefresh? true : false;
             })
-            .then(() => this._setUser(this._getCognitoUser(username, userPool))) // Refresh the user obj
+            .then(() => {
+              this._setIdentityId(AWS.config.credentials.params.IdentityId);
+              this._setUser(this._getCognitoUser(username, userPool)); // Refresh the user obj
+            })
             .then(() => this._getCognitoAttributes(cognitoUser))
             .then((attributes) => this._setAttributes(attributes))
             .catch((error) => {
@@ -507,6 +517,12 @@ Example usage:
         }
       },
 
+      _loggedInChanged: function(loggedIn) {
+        if (loggedIn && !this.identityId) {
+          this._setIdentityId(AWS.config.credentials.params.IdentityId);
+        }
+      },
+
       /**
        * Confirms an unverified Cognito user account.
        *
@@ -637,12 +653,6 @@ Example usage:
         }
         if (!AWS.config.credentials) {
           throw new Error( `No Cognito user credentials found while dispatching user` );
-        }
-        if (cognitoUser.username !== null) {
-          this._setIdentityId(AWS.config.credentials.params.IdentityId);
-          this._setLoggedIn(true);
-        } else {
-          (this._setLoggedIn(false));
         }
         this._log.debug(`Dispatching Cognito user ${cognitoUser.username}`);
 
