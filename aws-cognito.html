@@ -334,13 +334,68 @@ Example usage:
       },
 
       /**
+       * Resends the user's verification code.
+       *
+       * @param  {String} username                The username
+       * @return {Promise.<CodeDeliveryDetails>}  A promise that resolves to
+       *                                          the code delivery details.
+       */
+      resendVerificationCode: function(username) {
+        this._log.debug(`Trying to resend confirmation code for ${username}`);
+        const userPool = this._getCognitoUserPool();
+        const cognitoUser = this._getCognitoUser(username, userPool);
+        return new Promise((resolve, reject) => {
+          cognitoUser.resendConfirmationCode((error, result) => {
+            if (error) { reject(error); }
+            else { resolve(result); }
+          });
+        });
+      },
+
+      /**
+       * Requests a password reset code for a username.
+       * @param  {String} username The username
+       * @return {Promise.<String>} Promise that resolves to the success message
+       */
+      requestPasswordResetCode: function(username) {
+        this._log.debug(`Requesting password reset code for ${username}`);
+        const userPool = this._getCognitoUserPool();
+        const cognitoUser = this._getCognitoUser(username, userPool);
+        return new Promise((resolve, reject) => {
+          cognitoUser.forgotPassword({
+            onSuccess: (result) => resolve(result),
+            onFailure: (err) => reject(err),
+          });
+        });
+      },
+
+      /**
+       * Resets a user's password.
+       * @param  {String} username The Username
+       * @param  {String} password The new password
+       * @param  {String} code     The verification code
+       * @return {Promise.<String>} Promise that resolves to the success message
+       */
+      resetPassword: function(username, password, code) {
+        this._log.debug(`Resetting password for ${username}`);
+        const userPool = this._getCognitoUserPool();
+        const cognitoUser = this._getCognitoUser(username, userPool);
+        return new Promise((resolve, reject) => {
+          cognitoUser.confirmPassword(code, password, {
+            onSuccess: (result) => resolve(result),
+            onFailure: (err) => reject(err),
+          });
+        });
+      },
+
+      /**
        * Since Amazon apps can run with Cognito in a different region than other
        * services, `_initCognito` first checks if a cognito=specific region was
        * defined before accepting the global AWS region.
        */
       _initCognito: function() {
         AWSCognito.config.region = this.region ? this.region :
-                                   AWSCognito.config.region ||AWS.config.region;
+                                   AWSCognito.config.region || AWS.config.region;
       },
 
       /**
@@ -353,14 +408,11 @@ Example usage:
           UserPoolId: this.userPoolId,
           ClientId: this.clientId,
         };
-
         // const USER_POOL_URL = `cognito-idp${region}.amazonaws.com/${userPoolId}`;
         // NOTE: to use federated IDs, generate ARN and refer to it here.
         // see https://medium.com/@kangzeroo/user-management-with-aws-cognito-2-3-the-core-functionality-ec15849618a4#.l5h7n5gru
-
         let userPool = new AWSCognito.CognitoIdentityServiceProvider
           .CognitoUserPool(USER_POOL_DATA);
-
         return userPool;
       },
 
@@ -376,11 +428,8 @@ Example usage:
           Username: username,
           Pool: userPool,
         };
-
         let cognitoUser = new AWSCognito.CognitoIdentityServiceProvider
           .CognitoUser(userData);
-
-        // this._setUser(cognitoUser);
         return cognitoUser;
       },
 
@@ -537,25 +586,6 @@ Example usage:
         const cognitoUser = this._getCognitoUser(username, userPool);
         return new Promise((resolve, reject) => {
           cognitoUser.confirmRegistration(code, true, (error, result) => {
-            if (error) { reject(error); }
-            else { resolve(result); }
-          });
-        });
-      },
-
-      /**
-       * Resends the user's verification code.
-       *
-       * @param  {String} username                The username
-       * @return {Promise.<CodeDeliveryDetails>}  A promise that resolves to
-       *                                          the code delivery details.
-       */
-      _resendVerificationCode: function(username) {
-        this._log.debug(`Trying to resend confirmation code for ${username}`);
-        const userPool = this._getCognitoUserPool();
-        const cognitoUser = this._getCognitoUser(username, userPool);
-        return new Promise((resolve, reject) => {
-          cognitoUser.resendConfirmationCode((error, result) => {
             if (error) { reject(error); }
             else { resolve(result); }
           });
