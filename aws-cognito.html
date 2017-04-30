@@ -382,7 +382,7 @@ Example usage:
         const cognitoUser = this._getCognitoUser(username, userPool);
         return new Promise((resolve, reject) => {
           cognitoUser.confirmPassword(code, password, {
-            onSuccess: (result) => resolve(result),
+            onSuccess: () => resolve('SUCCESS'),
             onFailure: (err) => reject(err),
           });
         });
