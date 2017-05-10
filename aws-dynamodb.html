@@ -1,33 +1,34 @@
+<!DOCTYPE html>
+
 <link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../log-behavior/log-behavior.html">
 
 <!--
-`aws-dynamodb`
-Polymer Web Component for AWS DynamoDB
--->
+`<aws-dynamodb>` provides an easy way to retrieve and update AWS DynamoDB data.
 
+Example usage:
+
+```html
+<aws-app
+     region="eu-west-1">
+</aws-app>
+<aws-dynamodb
+     table-name="notes"
+     data="{{data}}">
+</aws-dynamodb>
+```
+
+This fetches the `data` object from the `notes` table in the DynamoDB
+database and exposes it to the Polymer databinding system. Changes to
+`data` will likewise be sent back and stored.
+
+The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
+-->
 <dom-module id="aws-dynamodb">
   <script>
-    (function () {
+    (function() {
       'use strict';
 
-      /**
-       * The `aws-dynamodb` element is an easy way to retrieve and update
-       * AWS DynamoDB data.
-       *
-       * Example usage:
-       *
-       * ```html
-       * <aws-app
-       *      region="eu-west-1">
-       * </aws-app>
-       * <aws-dynamodb
-       *      table-name="notes"
-       *      data="{{data}}">
-       * </aws-dynamodb>
-       * ```
-       *
-       * The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
-       */
       Polymer({
         is: 'aws-dynamodb',
 
@@ -55,11 +56,12 @@ Polymer Web Component for AWS DynamoDB
            */
           auto: {
             type: Boolean,
-            value: false
+            value: false,
+            observer: '_autoChanged',
           },
 
           /**
-           * Conditions to use when requesting data
+           * Conditions to use when requesting data.
            *
            * This array should contain all attributes with their value and condition as objects.
            *
@@ -80,11 +82,11 @@ Polymer Web Component for AWS DynamoDB
            */
           conditions: {
             type: Array,
-            value: []
+            value: [],
           },
 
           /**
-           * Whether to use consistent reads or not
+           * Whether to use consistent reads or not.
            *
            * By default the operations will use eventually consistent reads; therefore,
            * the result set might not include the changes to data in the table immediatly
@@ -95,64 +97,64 @@ Polymer Web Component for AWS DynamoDB
            */
           consistentRead: {
             type: Boolean,
-            value: false
+            value: false,
           },
 
           /**
-           * Operation's response
+           * Operation's response.
            *
            * This will be update every time the operation or query changes, changes
-           * to this object will result in updates inside the database
+           * to this object will result in updates inside the database.
            */
           data: {
             type: Object,
-            notify: true
+            notify: true,
           },
 
           /**
-           * The filter expression to add to the request
+           * The filter expression to add to the request.
            *
-           * Always the key and value in the conditions object
+           * Always the key and value in the conditions object.
            *
            * For more info: [AWS documentation](http://docs.aws.amazon.com/amazondynamodb/latest/developerguide/QueryAndScan.html#FilteringResults)
            */
           filterExpression: {
             type: String,
-            value: ''
+            value: '',
           },
 
           /**
-           * Whether data response data should be parsed or not
+           * Whether data response data should be parsed or not.
            *
            * If this is true the returned data will not contain the attribute types:
            * `S, N, B, SS, NS, BS, M, L, NULL, BOOL`.
            */
           formatData: {
             type: Boolean,
-            value: false
+            value: false,
           },
 
           /**
-           * The secondary index to scan or query
+           * The secondary index to scan or query.
            *
            * If this is not specified the query will use the primary index of the
            * table.
            */
           indexName: {
             type: String,
-            value: ''
+            value: '',
           },
 
           /**
-           * The maximum number of records to retrieve for a scan or query
+           * The maximum number of records to retrieve for a scan or query.
            */
           limit: {
             type: Number,
-            value: 100
+            value: 100,
           },
 
           /**
-           * The operation which is used for getting items from the DynamoDB
+           * The operation which is used for getting items from the DynamoDB.
            *
            * The only accepted values are `scan` and `query`.
            *
@@ -161,49 +163,81 @@ Polymer Web Component for AWS DynamoDB
           operation: {
             type: String,
             value: 'scan',
-            observer: '_getData'
+            observer: '_getData',
           },
 
           /**
-           * Specify the order for index traversal
+           * Specify the order for index traversal.
            *
            * If `true`, the traversal is performed in descending order.
            */
           reverseOrder: {
             type: Boolean,
-            value: false
+            value: false,
           },
 
           /**
-           * The name of the DynamoDB Table
+           * The name of the DynamoDB Table.
            *
            * For example: 'notes'
            */
           tableName: {
             type: String,
-            value: ''
+            value: '',
+          },
+
+          /**
+           * If true, `aws-dynamodb` will not try to update it's internal copy
+           * of AWS credentials before each operation.
+           */
+          noAutoRefreshCredentials: {
+            type: Boolean,
+            value: false,
+          },
+
+          /**
+           * True when awaiting a query response from DynamoDB.
+           */
+          querying: {
+            type: Boolean,
+            readOnly: true,
+            value: false,
+            notify: true,
           },
 
           _dynamoDBRef: {
             type: Object,
-            observer: '_getData'
+            observer: '_getData',
           },
 
           _lastEvaluatedKey: {
-            type: Object
+            type: Object,
           },
 
           _params: {
-            type: Object
-          }
+            type: Object,
+          },
+        },
+
+        behaviors: [
+          PolymerElements.LogBehavior,
+        ],
+
+        ready: function() {
+          this._log.debug(this.localName + ' is ready');
         },
 
         observers: [
-          '_computeParams(tableName, limit, reverseOrder, indexName, conditions, filterExpression)'
+          '_computeParams(tableName, limit, reverseOrder, indexName, conditions, filterExpression)',
         ],
 
         attached: function() {
-          this._dynamoDBRef = new AWS.DynamoDB();
+          if (this.formatData) {
+            this._dynamoDBRef = new AWS.DynamoDB.DocumentClient();
+          } else {
+            this._dynamoDBRef = new AWS.DynamoDB();
+          }
+          this._getData();
         },
 
         /**
@@ -221,6 +255,12 @@ Polymer Web Component for AWS DynamoDB
           }
 
           if (this._dynamoDBRef && this._params) {
+            this._refreshCredentials();
+            if (this.operation == 'query' && !this.conditions.length) {
+              this._log.warn('Tried to query without conditions');
+              return;
+            }
+            this._setQuerying(true);
             this._dynamoDBRef[this.operation](
               this._params,
               this._handleResponse.bind(this)
@@ -242,9 +282,10 @@ Polymer Web Component for AWS DynamoDB
          * @param   {Object} record The record that should be added to the table.
          */
         insertRecord: function(record) {
+          this._refreshCredentials();
           var params = {
             Item: this._generateInsertItem(record),
-            TableName: this.tableName
+            TableName: this.tableName,
           };
 
           this._dynamoDBRef.putItem(
@@ -263,6 +304,7 @@ Polymer Web Component for AWS DynamoDB
          * and false if there is no next page.
          */
         nextPage: function() {
+          this._refreshCredentials();
           if (this._lastEvaluatedKey !== null) {
             this.set('_params.ExclusiveStartKey', this._lastEvaluatedKey);
             this._getData();
@@ -289,6 +331,7 @@ Polymer Web Component for AWS DynamoDB
          * @param   {Object} changes The changes for the record.
          */
         updateRecord: function(index, changes) {
+          this._refreshCredentials();
           var expressionAttributes = this._generateUpdateConditions(changes);
 
           var params = {
@@ -296,7 +339,7 @@ Polymer Web Component for AWS DynamoDB
             TableName: this.tableName,
             ExpressionAttributeNames: expressionAttributes.names,
             ExpressionAttributeValues: expressionAttributes.values,
-            UpdateExpression: expressionAttributes.expression
+            UpdateExpression: expressionAttributes.expression,
           };
           this._dynamoDBRef.updateItem(
             params,
@@ -304,28 +347,34 @@ Polymer Web Component for AWS DynamoDB
           );
         },
 
+        _autoChanged: function(nv, ov) {
+          if (this._readied) {
+            this._getData();
+          }
+        },
+
         _awsSubstituteValue: function(value) {
           var substitution;
 
           switch (typeof value) {
             case 'array':
-              substitution = { L: value };
+              substitution = {L: value};
               break;
             case 'object':
-              substitution = { M: value };
+              substitution = {M: value};
               break;
             case 'string':
-              substitution = { S: value.toString() };
+              substitution = {S: value.toString()};
               break;
             case 'number':
-              substitution = { N: value.toString() };
+              substitution = {N: value.toString()};
               break;
             case 'boolean':
-              substitution = { BOOL: value };
+              substitution = {BOOL: value};
               break;
           }
 
-          return substitution;
+          return this.formatData ? value : substitution;
         },
 
         _computeParams: function(table, limit, traversal, index, conditions, filter) {
@@ -333,7 +382,7 @@ Polymer Web Component for AWS DynamoDB
             this.set('_params', {
               ConsistentRead: this.consistentRead,
               Limit: limit,
-              TableName: table
+              TableName: table,
             });
 
             if (index !== '') {
@@ -364,7 +413,7 @@ Polymer Web Component for AWS DynamoDB
           var conditionParams = {
             names: {},
             values: {},
-            expression: ''
+            expression: '',
           };
           var key;
           var name;
@@ -372,22 +421,24 @@ Polymer Web Component for AWS DynamoDB
           var condition;
 
           for (var item in conditions) {
-            condition = conditions[item];
-            key = Object.keys(condition)[0];
+            if (conditions.hasOwnProperty(item)) {
+              condition = conditions[item];
+              key = Object.keys(condition)[0];
 
-            if (!condition[key].value || !condition[key].condition) {
-              break;
-            }
+              if (!condition[key].value || !condition[key].condition) {
+                break;
+              }
 
-            name = '#' + key;
-            value = ':' + key;
-            conditionParams.names[name] = key;
-            conditionParams.values[value] = this._awsSubstituteValue(condition[key].value);
+              name = '#' + key;
+              value = ':' + key;
+              conditionParams.names[name] = key;
+              conditionParams.values[value] = this._awsSubstituteValue(condition[key].value);
 
-            if (condition[key].condition === 'begins_with') {
-              conditionParams.expression += 'begins_with(' + name + ', ' + value + ') AND ';
-            } else {
-              conditionParams.expression += name + ' ' + condition[key].condition + ' ' + value + ' AND ';
+              if (condition[key].condition === 'begins_with') {
+                conditionParams.expression += 'begins_with(' + name + ', ' + value + ') AND ';
+              } else {
+                conditionParams.expression += name + ' ' + condition[key].condition + ' ' + value + ' AND ';
+              }
             }
           }
 
@@ -398,10 +449,13 @@ Polymer Web Component for AWS DynamoDB
         },
 
         _generateInsertItem: function(data) {
-          var item, result = {};
+          var item = {};
+          var result = {};
 
           for (item in data) {
-            result[item] = this._awsSubstituteValue(data[item]);
+            if (data.hasOwnProperty(item)) {
+              result[item] = this._awsSubstituteValue(data[item]);
+            }
           }
 
           return result;
@@ -412,7 +466,9 @@ Polymer Web Component for AWS DynamoDB
           var result = {};
 
           for (key in keys) {
-            result[key] = this._awsSubstituteValue(keys[key]);
+            if (keys.hasOwnProperty(key)) {
+              result[key] = this._awsSubstituteValue(keys[key]);
+            }
           }
 
           return result;
@@ -425,9 +481,11 @@ Polymer Web Component for AWS DynamoDB
           var expression = 'SET ';
 
           for (item in changes) {
-            substituteTokens['#' + item] = item;
-            substituteValues[':' + item] = this._awsSubstituteValue(changes[item]);
-            expression += '#' + item + ' = :' + item + ', ';
+            if (changes.hasOwnProperty(item)) {
+              substituteTokens['#' + item] = item;
+              substituteValues[':' + item] = this._awsSubstituteValue(changes[item]);
+              expression += '#' + item + ' = :' + item + ', ';
+            }
           }
 
           expression = expression.slice(0, -2);
@@ -435,8 +493,8 @@ Polymer Web Component for AWS DynamoDB
           return {
             expression: expression,
             names: substituteTokens,
-            values: substituteValues
-          }
+            values: substituteValues,
+          };
         },
 
         _getData: function() {
@@ -445,11 +503,21 @@ Polymer Web Component for AWS DynamoDB
           }
         },
 
+        _refreshCredentials: function() {
+          if (!this.noAutoRefreshCredentials && this._dynamoDBRef) {
+            if (this.formatData) {
+              this._dynamoDBRef.service.config.credentials = AWS.config.credentials;
+            } else {
+              this._dynamoDBRef.config.credentials = AWS.config.credentials;
+            }
+          }
+        },
+
         _handleInsertResponse: function(error, data) {
           if (error) {
             this.fire('error', {
               source: 'insertRecord',
-              error: error
+              error: error,
             });
             return;
           }
@@ -458,28 +526,19 @@ Polymer Web Component for AWS DynamoDB
         },
 
         _handleResponse: function(error, data) {
+          this._setQuerying(false);
           if (error) {
             throw new Error('Could not retrieve data from DynamoDB because: ' + error);
           }
-
           this.set('_lastEvaluatedKey', data.LastEvaluatedKey);
-
-          if (this.formatData) {
-            for (var i = 0, length = data.Items.length; i < length; i++) {
-              data.Items[i] = this._parseItem(data.Items[i]);
-            }
-
-            this.set('data', data.Items);
-          } else {
-            this.set('data', data.Items);
-          }
+          this.set('data', data.Items);
         },
 
         _handleUpdateResponse: function(error, data) {
           if (error) {
             this.fire('error', {
               source: 'updateRecord',
-              error: error
+              error: error,
             });
             return;
           }
@@ -496,24 +555,26 @@ Polymer Web Component for AWS DynamoDB
           var parsed = {};
 
           for (var j in item) {
-            var type = Object.keys(item[j])[0];
-            parsed[j] = item[j][type];
+            if (item.hasOwnProperty(j)) {
+              var type = Object.keys(item[j])[0];
+              parsed[j] = item[j][type];
 
-            if (type === 'N') {
-              parsed[j] = parseFloat(item[j].N);
-            }
+              if (type === 'N') {
+                parsed[j] = parseFloat(item[j].N);
+              }
 
-            if (type === 'BOOL') {
-              if (item[j].BOOL === 'true' || item[j].BOOL === true) {
-                parsed[j] = true;
-              } else {
-                parsed[j] = false;
+              if (type === 'BOOL') {
+                if (item[j].BOOL === 'true' || item[j].BOOL === true) {
+                  parsed[j] = true;
+                } else {
+                  parsed[j] = false;
+                }
               }
             }
           }
 
           return parsed;
-        }
+        },
       });
     })();
   </script>
