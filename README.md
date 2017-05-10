@@ -22,8 +22,7 @@ Cognito service.
 Example usage:
 
 ```html
-<aws-app
-    region="us-east-1">
+<aws-app region="us-east-1"></aws-app>
 <aws-cognito id="cognito"
     user-pool-id="us-east-1_XXXXXXXXX"
     client-id="3XXXXXfea3nXXX0k3XXXXXX9p5"
@@ -38,13 +37,11 @@ Example usage:
 Example usage:
 
 ```html
-<aws-app
-     region="eu-west-1">
-</aws-app>
+<aws-app region="eu-west-1"></aws-app>
 <aws-dynamodb
-     table-name="notes"
-     data="{{data}}">
-</aws-dynamodb>
+    table-name="notes"
+    data="{{data}}"
+></aws-dynamodb>
 ```
 
 This fetches the `data` object from the `notes` table in the DynamoDB database
@@ -58,12 +55,9 @@ likewise sent back and stored.
 Example usage:
 
 ```html
-<aws-app
-   region="eu-west-1">
-</aws-app>
-<aws-lambda
-   id="transformNotes"
-   function-name="transformNotes"
-   on-response="handleResponse">
-</aws-lambda>
+<aws-app region="eu-west-1"></aws-app>
+<aws-lambda id="transformNotes"
+    function-name="transformNotes"
+    on-response="handleResponse"
+></aws-lambda>
 ```
