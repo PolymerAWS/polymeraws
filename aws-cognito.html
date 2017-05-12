@@ -240,6 +240,7 @@ Example usage:
         this._log.info(`Logging out user ${cognitoUser.username}`);
         this._shouldRefreshUser = false;
         cognitoUser.signOut();
+        AWS.config.credentials.clearCachedId(); // https://github.com/aws/aws-sdk-js/issues/609
         AWS.config.credentials = {};
         cognitoUser = null;
         this.loggedIn = false;
