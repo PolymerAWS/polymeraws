@@ -1,27 +1,22 @@
 <link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../log-behavior/log-behavior.html">
 <link rel="import" href="aws-sdk-script.html">
 
 <!--
-`aws-app`
-Polymer Web Components for AWS
+`<aws-app>` initializes and configures your connection to AWS.
+It is permanently initialized once attached and should not be dynamically bound.
+
+Example usage:
+
+```html
+<aws-app region="eu-west-1"></aws-app>
+```
 -->
 
 <dom-module id="aws-app">
   <script>
-    (function () {
+    (function() {
       'use strict';
-
-      /**
-       * The aws-app element is used for initializing and configuring your
-       * connection to AWS. It is permanently initialized once attached and
-       * should not be dynamically bound.
-       *
-       * Example usage:
-       *
-       * ```html
-       * <aws-app region="eu-west-1"></aws-app>
-       * ```
-       */
       Polymer({
         is: 'aws-app',
 
@@ -33,7 +28,7 @@ Polymer Web Components for AWS
            */
           region: {
             type: String,
-            observer: '_updateRegion'
+            observer: '_updateRegion',
           },
 
           /**
@@ -43,7 +38,7 @@ Polymer Web Components for AWS
            * the preferred method for authentication is using Cognito identity.
            */
           accessKeyId: {
-            type: String
+            type: String,
           },
 
           /**
@@ -54,7 +49,7 @@ Polymer Web Components for AWS
            * Cognito identity.
            */
           secretAccessKey: {
-            type: String
+            type: String,
           },
 
           /**
@@ -63,30 +58,38 @@ Polymer Web Components for AWS
           sslDisabled: {
             type: Boolean,
             value: false,
-            observer: '_updateSSLSetting'
-          }
+            observer: '_updateSSLSetting',
+          },
+        },
+
+        behaviors: [
+          PolymerElements.LogBehavior,
+        ],
+
+        ready: function() {
+          this._log.debug(this.localName + ' is ready');
         },
 
         observers: [
-          '_authenticateIAmUser(accessKeyId, secretAccessKey)'
+          '_authenticateIAmUser(accessKeyId, secretAccessKey)',
         ],
 
-        _authenticateIAmUser: function (accessKeyId, secretAccessKey) {
+        _authenticateIAmUser: function(accessKeyId, secretAccessKey) {
           if (accessKeyId && secretAccessKey) {
             AWS.config.update({
               accessKeyId: accessKeyId,
-              secretAccessKey: secretAccessKey
+              secretAccessKey: secretAccessKey,
             });
           }
         },
 
-        _updateRegion: function (region) {
+        _updateRegion: function(region) {
           AWS.config.region = region;
         },
 
-        _updateSSLSetting: function (sslDisabled) {
+        _updateSSLSetting: function(sslDisabled) {
           AWS.config.sslEnabled = !sslDisabled;
-        }
+        },
       });
     })();
   </script>

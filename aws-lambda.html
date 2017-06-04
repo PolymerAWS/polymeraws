@@ -1,40 +1,36 @@
 <link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../log-behavior/log-behavior.html">
 
 <!--
-`aws-lambda`
-Polymer Web Components for AWS Lambda
+`<aws-lambda>` provides an easy way to invoke a AWS Lambda function.
+
+Example usage:
+
+```html
+<aws-app
+   region="eu-west-1">
+</aws-app>
+<aws-lambda
+   id="transformNotes"
+   function-name="transformNotes"
+   on-response="handleResponse">
+</aws-lambda>
+```
+
+The `aws-app` element initializes `AWS` in `aws-lambda`.
+
+JavaScript invoke calls can then be made to the `aws-lambda` object to invoke
+the Lambda function.
+
+```javascript
+this.$.transformNotes.invoke();
+```
 -->
 
 <dom-module id="aws-lambda">
   <script>
-    (function () {
+    (function() {
       'use strict';
-
-      /**
-       * The `aws-lambda` element is an easy way to invoke a AWS Lambda function.
-       *
-       * Example usage:
-       *
-       * ```html
-       * <aws-app
-       *     region="eu-west-1">
-       * </aws-app>
-       * <aws-lambda
-       *     id="transformNotes"
-       *     function-name="transformNotes"
-       *     on-response="handleResponse">
-       * </aws-lambda>
-       * ```
-       *
-       * The `aws-app` element initializes `AWS` in `aws-lambda`.
-       *
-       * JavaScript invoke calls can then be made to the `aws-lambda` object to invoke
-       * the Lambda function.
-       *
-       * ```javascript
-       * this.$.transformNotes.invoke();
-       * ```
-       */
       Polymer({
         is: 'aws-lambda',
 
@@ -46,7 +42,7 @@ Polymer Web Components for AWS Lambda
            */
           functionName: {
             type: String,
-            value: ''
+            value: '',
           },
 
           /**
@@ -57,7 +53,7 @@ Polymer Web Components for AWS Lambda
           lastResponse: {
             type: Object,
             notify: true,
-            readOnly: true
+            readOnly: true,
           },
 
           /**
@@ -66,16 +62,30 @@ Polymer Web Components for AWS Lambda
           lastError: {
             type: Object,
             notify: true,
-            readOnly: true
+            readOnly: true,
           },
 
+          /**
+           * Lambda Invocation type
+           */
+          invocationType: String,
+
+          /**
+           * Lambda Log type
+           */
+          logType: String,
+
           _lambdaRef: {
-            type: Object
-          }
+            type: Object,
+          },
         },
 
-        attached: function () {
-          this._lambdaRef = new AWS.Lambda();
+        behaviors: [
+          PolymerElements.LogBehavior,
+        ],
+
+        ready: function() {
+          this._log.debug(this.localName + ' is ready');
         },
 
         /**
@@ -85,14 +95,21 @@ Polymer Web Components for AWS Lambda
          * payload is specified, the function will be invoked without a payload.
          */
         invoke: function(payload) {
+          this._lambdaRef = new AWS.Lambda();
+
           if (this.get('functionName') === '') {
             throw new Error('No function name is set');
           }
 
-          this._lambdaRef.invoke({
+          var params = {
             FunctionName: this.get('functionName'),
-            Payload: JSON.stringify(payload)
-          }, this._handleResponse.bind(this));
+            Payload: JSON.stringify(payload),
+          };
+
+          params.InvocationType = this.invocationType ? this.invocationType : null;
+          params.LogType = this.logType ? this.logType : null;
+
+          this._lambdaRef.invoke(params, this._handleResponse.bind(this));
         },
 
         _handleResponse: function(error, response) {
@@ -100,7 +117,7 @@ Polymer Web Components for AWS Lambda
           this._setLastResponse(response);
 
           this.fire('response', response);
-        }
+        },
       });
     })();
   </script>
