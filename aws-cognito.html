@@ -531,7 +531,9 @@ Example usage:
        * @param  {Object} error Error object. Should contain `message` key.
        */
       _handleError: function(error) {
-        this.dispatchEvent(new ErrorEvent('error', {error, bubbles: true, composed: true}));
+        error.bubbles = true;
+        error.composed = true;
+        this.dispatchEvent(new ErrorEvent('error', error));
       },
 
       /**
