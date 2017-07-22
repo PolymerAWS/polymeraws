@@ -90,6 +90,15 @@ Example usage:
         },
 
         /**
+         * The User's AWS Credentials.
+         */
+        credentials: {
+          type: Object,
+          readOnly: true,
+          notify: true,
+        },
+
+        /**
          * The authenticated user's cognito IdentityId
          */
         identityId: {
@@ -714,6 +723,7 @@ Example usage:
               } else {
                 this._log.debug(`Updating credentials on global AWS.config`);
                 AWS.config.credentials = credentials;
+                this._setCredentials(credentials);
                 resolve(credentials, cognitoUser, cognitoSession);
               }
             });
