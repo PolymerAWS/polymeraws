@@ -137,6 +137,15 @@ Example usage:
         },
 
         /**
+         * The Cognito session
+         */
+        session: {
+          type: Object,
+          readOnly: true,
+          notify: true,
+        },
+
+        /**
          * Indicates whether or not `<aws-cognito>` will attempt to refresh the
          * Cognito user at the end of the current interval.
          */
@@ -322,9 +331,9 @@ Example usage:
               this.dispatchEvent(new CustomEvent('restore-session-success', {
                 detail: username, bubbles: true, composed: true,
               }));
+              this._getCognitoAttributes(cognitoUser)
+              .then((attributes) => this._setAttributes(attributes));
             })
-            .then(() => this._getCognitoAttributes(cognitoUser))
-            .then((attributes) => this._setAttributes(attributes))
             .catch((error) => {
               this._setLoading(false);
               this.dispatchEvent(new CustomEvent('restore-session-failure', {
@@ -520,7 +529,10 @@ Example usage:
           }
           cognitoUser.getSession((error, cognitoSession) => {
             if (error) {reject(error);}
-            else {resolve(cognitoSession);}
+            else {
+              resolve(cognitoSession);
+              this._setSession(cognitoSession);
+            }
           });
         });
       },
