@@ -333,6 +333,7 @@ Example usage:
               }));
               this._getCognitoAttributes(cognitoUser)
               .then((attributes) => this._setAttributes(attributes));
+              resolve(cognitoUser);
             })
             .catch((error) => {
               this._setLoading(false);
