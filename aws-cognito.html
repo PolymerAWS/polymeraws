@@ -129,6 +129,15 @@ Example usage:
         },
 
         /**
+         * Array of objects representing identity providers. e.g.
+         * {url: 'login.provider.com', token: 'the provider token'}
+         */
+        providers: {
+          type: Array,
+          value: () => [],
+        },
+
+        /**
          * The interval, in minutes, at which to try to refresh user session.
          */
         refreshUserInterval: {
@@ -162,6 +171,7 @@ Example usage:
       observers: [
         '_userChanged(user, identityId)',
         '_attributesChanged(attributes)',
+        '_providersChanged(providers, providers.*)',
       ],
 
       ready: function() {
@@ -785,12 +795,24 @@ Example usage:
       _dispatchCredentials: function(credentials, cognitoUser, cognitoSession) {
         if (!credentials) {
           throw new Error('No credentials found while dispatching credentials');
+      _providersChanged: function(providers) {
+        if (!providers || !providers.length) return;
+        let Logins = {};
+        for (let provider of providers) {
+          Logins[provider.url] = provider.token;
         }
         this._log.debug('Dispatching Cognito credentials');
         const detail = {credentials, cognitoUser, cognitoSession};
         this.dispatchEvent(new CustomEvent('cognito-credentials', {
           detail, bubbles: true, composed: true,
         }));
+        const IdentityPoolId = this.identityPoolId;
+        const credentials = {IdentityPoolId, Logins};
+        const newCredentials = new AWS.CognitoIdentityCredentials(credentials);
+        AWS.config.credentials = newCredentials;
+        this.refreshCredentials();
+      },
+
       },
     });
     /**
