@@ -262,18 +262,15 @@ Example usage:
           const userPool = this._getCognitoUserPool();
           let cognitoUser = this._getCognitoUser(username, userPool);
           this._authenticateUser(username, password)
-          .then(() => this._getCognitoSession(cognitoUser))
-          .then((cognitoSession) =>
-            this._refreshCognitoCredentials(cognitoUser, cognitoSession)
-          )
+          .then(this.refreshCredentials())
           .then(() => {
             this._setIdentityId(AWS.config.credentials.params.IdentityId);
             this._setUser(this._getCognitoUser(username, userPool));
             this._setLoggedIn(true);
+            this._getCognitoAttributes(cognitoUser);
           })
-          .then(() => this._getCognitoAttributes(cognitoUser))
-          .then((attributes) => this._setAttributes(attributes))
-          .then(() => {
+          .then((attributes) => {
+            this._setAttributes(attributes);
             // Begin automatically refreshing user unless asked not to
             this._shouldRefreshUser = this.noAutoRefresh ? false : true;
             this.dispatchEvent(new CustomEvent('login-success', {
@@ -304,6 +301,7 @@ Example usage:
         AWS.config.credentials = {};
         cognitoUser = null;
         this.loggedIn = false;
+        this.providers.forEach(() => this.pop('providers'));
         this._setIdentityId(null);
         this._setLoggedIn(false);
         this._setUser({username: null});
@@ -331,8 +329,10 @@ Example usage:
           } else {
             const username = cognitoUser.username;
             this._log.info( `Cognito user ${cognitoUser.username} found. Trying to recover` );
-            this._recoverUser(cognitoUser)
-            .then(() => {
+            this._getCognitoSession(cognitoUser)
+            .then((cognitoSession) => this._integrateUser(cognitoSession))
+            .then(this.refreshCredentials())
+            .then((credentials) => {
               this._setLoading(false);
               this._setUser(this._getCognitoUser(username, userPool)); // Refresh the user obj
               this._setLoggedIn(true);
@@ -362,27 +362,11 @@ Example usage:
        */
       refreshCredentials: function() {
         this._log.info('Trying to refresh credentials');
-        const userPool = this._getCognitoUserPool();
-        const cognitoUser = userPool.getCurrentUser();
         return new Promise((resolve, reject) => {
-          this._getCognitoSession(cognitoUser).then((cognitoSession) => {
-            if (!cognitoUser) {
-              let msg = 'No Cognito user found while trying to refresh credentials';
-              this._log.warn(msg);
-              reject(msg);
-            } else if (!cognitoSession) {
-              let msg = 'No Cognito session found while trying to refresh credentials';
-              this._log.warn(msg);
-              reject(msg);
-            } else {
-              this._refreshCognitoCredentials(cognitoUser, cognitoSession)
-              .then((credentials) => {
-                resolve(credentials);
-                this._dispatchCredentials(credentials, cognitoUser, cognitoSession);
-              })
-              .catch((error) => this._handleError(error));
-            }
-          });
+          this._refreshCognitoCredentials().then((credentials) => {
+            this._setCredentials(credentials);
+            resolve(credentials);
+          }).catch((error) => this._handleError(error));
         });
       },
 
@@ -484,10 +468,21 @@ Example usage:
        * Since Amazon apps can run with Cognito in a different region than other
        * services, `_initCognito` first checks if a cognito=specific region was
        * defined before accepting the global AWS region.
+       *
+       * Sets up a credentials object which allows for unauthenticated Cognito roles.
        */
       _initCognito: function() {
-        AWSCognito.config.region = this.region ? this.region :
-                                   AWSCognito.config.region || AWS.config.region;
+        // Configure region
+        const GLOBAL_REGION = AWSCognito.config.region || AWS.config.region;
+        const CONFIGURED_REGION = this.region || GLOBAL_REGION;
+        AWSCognito.config.region = CONFIGURED_REGION;
+        // Initialize credentials
+        const IdentityPoolId = this.identityPoolId;
+        let credentials = new AWS.CognitoIdentityCredentials({IdentityPoolId});
+            credentials.clearCachedId(); // https://github.com/aws/aws-sdk-js/issues/609
+            credentials = new AWS.CognitoIdentityCredentials({IdentityPoolId});
+        AWS.config.credentials = credentials;
+        this.refreshCredentials();
       },
 
       /**
@@ -535,14 +530,11 @@ Example usage:
       _getCognitoSession: function(cognitoUser) {
         this._log.debug(`Trying to get Cognito session for ${cognitoUser.username}`);
         return new Promise((resolve, reject) => {
-          if (!cognitoUser) {
-            reject(new Error( `No Cognito user found while trying to get session` ));
-          }
           cognitoUser.getSession((error, cognitoSession) => {
-            if (error) {reject(error);}
+            if (error) reject(error);
             else {
-              resolve(cognitoSession);
               this._setSession(cognitoSession);
+              resolve(cognitoSession);
             }
           });
         });
@@ -552,7 +544,6 @@ Example usage:
        * Gets a logged-in user's Cognito attributes.
        *
        * @param  {CognitoUser}                 cognitoUser     The Cognito user.
-       * @param  {CognitoSession}              cognitoSession  The session.
        * @return {Promise.<CognitoAttributes>} A promise that resolves to
        *                                       an array of Attributes.
        */
@@ -561,9 +552,6 @@ Example usage:
         let name = cognitoUser.username;
         this._log.debug(`Trying to get Cognito attributes for ${name}`);
         return new Promise((resolve, reject) => {
-          if (!cognitoUser) {
-            reject(new Error( `No Cognito user found while trying to get attributes` ));
-          }
           cognitoUser.getUserAttributes((error, attributes) => {
             if (error) {reject(error);}
             else {
@@ -578,37 +566,14 @@ Example usage:
       },
 
       /**
-       * Creates new Cognito credentials for a user.
+       * Gets current Cognito credentials.
        *
-       * @param  {CognitoUser}     cognitoUser    The Cognito user,
-       * @param  {CognitoSession}  cognitoSession The session,
-       * @return {CognitoCredentials}             The generated credentials.
+       * @return {CognitoCredentials} The credentials object.
        */
-      _getCognitoCredentials: function(cognitoUser, cognitoSession) {
-        this._log.debug(`Trying to get credentials for ${cognitoUser.username}`);
-
-        if (!cognitoUser) {
-          throw new Error( `No Cognito user found while trying to get credentials` );
-        }
-        if (!cognitoSession) {
-          throw new Error( `No Cognito session found while trying to get credentials` );
-        }
-        if (!cognitoSession.isValid()) {
-          throw new Error( `Cognito session invalid while trying to get credentials` );
-        }
-
-        else {
-          // Tell AWS SDK about the newly logged in user
-          const url = `cognito-idp.${AWSCognito.config.region}.amazonaws.com/${this.userPoolId}`;
-          let params = {};
-              params.IdentityPoolId = this.identityPoolId;
-              params.Logins = {};
-              params.Logins[url] = cognitoSession.getIdToken().getJwtToken();
-          let credentials = new AWS.CognitoIdentityCredentials(params);
-              credentials.clearCachedId(); // https://github.com/aws/aws-sdk-js/issues/609
-              credentials = new AWS.CognitoIdentityCredentials(params);
-          return credentials;
-        }
+      _getCredentials: function() {
+        const credentials = AWS.config.credentials;
+        this._setCredentials(credentials);
+        return credentials;
       },
 
       /**
@@ -646,13 +611,8 @@ Example usage:
             const cognitoUser = userPool.getCurrentUser();
             if (cognitoUser) {
               this._log.debug(`Trying to keep user ${cognitoUser.username} fresh`);
-              this._recoverUser(cognitoUser)
-              .then((credentials, cognitoUser, cognitoSession) => {
-                if (credentials && cognitoUser && cognitoSession) {
-                  let expiry = credentials.expireTime;
-                  this._log.debug(`Credential Expiry: ${expiry}`);
-                }
-              })
+              this.refreshCredentials()
+              .then((credentials) => this._log.debug(`Credential Expiry: ${credentials.expireTime}`))
               .catch((error) => this._log.error(error));
             }
           };
@@ -672,28 +632,24 @@ Example usage:
       /**
        * Logs a user into a Cognito app.
        *
-       * @param  {String} username The username
-       * @param  {String} password The password.
+       * @param  {String} Username The username
+       * @param  {String} Password The password.
        * @return {Promise.<cognitoSession>} A promise that resolves to
        *                                    the Cognito session.
        */
-      _authenticateUser: function(username, password) {
-        this._log.debug(`Trying to authenticate user ${username}`);
-        const authenticationData = {
-          Username: username,
-          Password: password,
-        };
-        const authenticationDetails = new AWSCognito
-          .CognitoIdentityServiceProvider
-          .AuthenticationDetails(authenticationData);
+      _authenticateUser: function(Username, Password) {
+        this._log.debug(`Trying to authenticate ${Username}`);
+        const authenticationData = {Username, Password};
+        const authenticationDetails = new AWSCognito.CognitoIdentityServiceProvider.AuthenticationDetails(authenticationData); // eslint-disable-line max-len
         const userPool = this._getCognitoUserPool();
-        const cognitoUser = this._getCognitoUser(username, userPool);
+        const cognitoUser = this._getCognitoUser(Username, userPool);
         return new Promise((resolve, reject) => {
           this._setLoading(true);
           cognitoUser.authenticateUser(authenticationDetails, {
             onSuccess: (cognitoSession) => {
               this._setLoading(false);
-              resolve(cognitoSession);
+              this._integrateUser(cognitoSession);
+              this.refreshCredentials().then(resolve(cognitoSession));
             },
             onFailure: (error) => {
               this._setLoading(false);
@@ -714,45 +670,27 @@ Example usage:
       _recoverUser: function(cognitoUser) {
         return new Promise((resolve, reject) => {
           this._getCognitoSession(cognitoUser)
-          .then((cognitoSession) =>
-            this._refreshCognitoCredentials(cognitoUser, cognitoSession))
-          .then((credentials, cognitoUser, cognitoSession) =>
-            resolve(credentials, cognitoUser, cognitoSession))
-          .catch((error) => reject(error));
+          .then((cognitoSession) => {
+            this.refreshCredentials()
+            .then((credentials) =>
+              resolve(credentials, cognitoUser, cognitoSession));
+          }).catch((error) => reject(error));
         });
       },
 
       /**
        * Refreshes the user's Cognito credentials.
        *
-       * @param  {CognitoUser}                   cognitoUser     The Cognito user.
-       * @param  {CognitoSession}                cognitoSession  The session.
        * @return {Promise.<CognitoCredentials>} A promise that resolves to
        *                                        the user's Cognito credentials.
        */
-      _refreshCognitoCredentials: function(cognitoUser, cognitoSession) {
-        this._log.debug(`Trying to refresh credentials for ${cognitoUser.username}`);
+      _refreshCognitoCredentials: function() {
         return new Promise((resolve, reject) => {
-          if (!cognitoUser) {
-            reject(new Error( `No Cognito user found while trying to refresh credentials` ));}
-          if (!cognitoSession) {
-            reject(new Error( `No Cognito session found while trying to refresh credentials` ));
-          }
-          else {
-            const credentials = this._getCognitoCredentials(cognitoUser, cognitoSession); // eslint-disable-line
-            credentials.refresh((error) => {
-              if (error) {
-                reject(error);
-              } else {
-                this._log.debug(`Updating credentials on global AWS.config`);
-                AWS.config.credentials = credentials;
-                this._setCredentials(credentials);
-                resolve(credentials, cognitoUser, cognitoSession);
-              }
-            });
-          }
+          const creds = this._getCredentials();
+          if (!creds.refresh) resolve(creds);
+          else creds.refresh((err) => err ? reject(err) : resolve(creds));
         });
-      },
+     },
 
       /**
        * Dispatches an event containing all Cognito user data.
@@ -785,27 +723,12 @@ Example usage:
         }));
       },
 
-      /**
-       * Dispatches an event containing the refreshed credentials object.
-       * @param  {CognitoCredentials} credentials    The credentials object
-       * @param  {CognitoUser}        cognitoUser     The Cognito user.
-       * @param  {CognitoSession}     cognitoSession  The session.
-       * @fires  credentials-updated
-       */
-      _dispatchCredentials: function(credentials, cognitoUser, cognitoSession) {
-        if (!credentials) {
-          throw new Error('No credentials found while dispatching credentials');
       _providersChanged: function(providers) {
         if (!providers || !providers.length) return;
         let Logins = {};
         for (let provider of providers) {
           Logins[provider.url] = provider.token;
         }
-        this._log.debug('Dispatching Cognito credentials');
-        const detail = {credentials, cognitoUser, cognitoSession};
-        this.dispatchEvent(new CustomEvent('cognito-credentials', {
-          detail, bubbles: true, composed: true,
-        }));
         const IdentityPoolId = this.identityPoolId;
         const credentials = {IdentityPoolId, Logins};
         const newCredentials = new AWS.CognitoIdentityCredentials(credentials);
@@ -885,13 +808,6 @@ Example usage:
      *
      * @event restore-session-failure
      * @property {Object}  Error.
-     */
-
-    /**
-     * Fired when credentials are refreshed
-     *
-     * @event cognito-credentials
-     * @property {Object}       Credentials.
      */
 
     /**
