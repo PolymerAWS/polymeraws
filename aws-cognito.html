@@ -134,6 +134,7 @@ Example usage:
          */
         providers: {
           type: Array,
+          notify: true,
           value: () => [],
         },
 
@@ -171,7 +172,7 @@ Example usage:
       observers: [
         '_userChanged(user, identityId)',
         '_attributesChanged(attributes)',
-        '_providersChanged(providers, providers.*)',
+        '_providersChanged(providers, providers.splices)',
       ],
 
       ready: function() {
@@ -732,10 +733,22 @@ Example usage:
         const IdentityPoolId = this.identityPoolId;
         const credentials = {IdentityPoolId, Logins};
         const newCredentials = new AWS.CognitoIdentityCredentials(credentials);
+        newCredentials.expired = true;
         AWS.config.credentials = newCredentials;
         this.refreshCredentials();
       },
 
+      _integrateUser: function(cognitoSession) {
+        const url = `cognito-idp.${this.region}.amazonaws.com/${this.userPoolId}`;
+        const token = cognitoSession.getIdToken().getJwtToken();
+        const provider = {url, token};
+        const providerIndex = this.providers.findIndex((p) => p.url === url);
+        switch (providerIndex) {
+          // Cognito idP does not exist in providers array. Add it.
+          case -1: return this.push('providers', provider);
+          // Cognito idP does exist in providers array. Update the token.
+          default: this.set(['providers', providerIndex, 'token'], token);
+        }
       },
     });
     /**
