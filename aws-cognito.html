@@ -83,6 +83,14 @@ Example usage:
         },
 
         /**
+         * The current session's username.
+         */
+        username: {
+          type: String,
+          computed: '_computeUsername(userPool)',
+        },
+
+        /**
          * The cognito user pool
          */
         userPool: {
@@ -470,6 +478,8 @@ Example usage:
        * @return {CognitoUser}           The Cognito user.
        */
       _computeUser: (Username, Pool) => new CISP.CognitoUser({Username, Pool}),
+
+      _computeUsername: (pool) => pool.getCurrentUser().username,
 
       /**
        * Computes a userPool object from User Pool ID and Client ID.
