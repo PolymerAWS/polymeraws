@@ -9,15 +9,23 @@ Cognito service.
 Example usage:
 
 ```html
-<aws-app
-    region="us-east-1">
+<aws-app region="us-east-1">
+
 <aws-cognito id="cognito"
-    user-pool-id="us-east-1_XXXXXXXXX"
-    client-id="3XXXXXfea3nXXX0k3XXXXXX9p5"
-    identity-pool-id="us-east-1:XXXXXXXX-XXXX-XXXX-XXXX-XXXXAXXXXXXX"
-    user="{{user}}"
+    region="[[region]]"
+    user-pool-id="[[userPoolId]]"
+    client-id="[[clientId]]"
+    identity-pool-id="[[identityPoolId]]"
+    user="{{cognitoUser}}"
     attributes="{{attributes}}"
+    credentials="{{credentials}}"
+    identity-id="{{identityId}}"
+    logged-in="{{loggedIn}}"
+    session="{{session}}"
+    loading="{{user.loading}}"
+    on-login-success="_handleLoginSuccess"
 ></aws-cognito>
+
 ```
 -->
 
@@ -699,22 +707,6 @@ Example usage:
      */
 
     /**
-     * Fired when the user is updated by Cognito.
-     *
-     * @event cognito-user
-     * @property {String}       username.
-     * @property {CognitoUser}  Cognito user.
-     * @property {String}       User's Cognito IdentityId.
-     */
-
-    /**
-     * Fired when the user attributes are updated by Cognito.
-     *
-     * @event cognito-attributes
-     * @property {Object}       Attributes.
-     */
-
-    /**
      * Fired when a user successfully logs in
      *
      * @event login-success
@@ -725,20 +717,6 @@ Example usage:
      * Fired when a user fails to log in
      *
      * @event login-failure
-     * @property {Object}  Error.
-     */
-
-    /**
-     * Fired when a user session is successfully restored
-     *
-     * @event restore-session-success
-     * @property {String}  username
-     */
-
-    /**
-     * Fired when a user sesssion fails to restore
-     *
-     * @event restore-session-failure
      * @property {Object}  Error.
      */
 
