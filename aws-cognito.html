@@ -480,7 +480,10 @@ Example usage:
        */
       _computeUser: (Username, Pool) => new CISP.CognitoUser({Username, Pool}),
 
-      _computeUsername: (pool) => pool.getCurrentUser().username,
+      _computeUsername: (pool) => {
+        const user = pool && pool.getCurrentUser();
+        if (user && user.username) return user.username;
+      },
 
       /**
        * Computes a userPool object from User Pool ID and Client ID.
