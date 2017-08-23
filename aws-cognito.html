@@ -319,7 +319,9 @@ Example usage:
       recoverUser: function() {
         this._log.info(`Trying to recover Cognito user session`);
         const userPool = this._getCognitoUserPool();
+          if (!userPool) return Promise.reject('No User Pool');
         const cognitoUser = userPool.getCurrentUser();
+          if (!cognitoUser) return Promise.reject('No Cognito User');
         return new Promise((resolve, reject) => {
           this._setLoading(true);
           if (!cognitoUser) {
@@ -377,7 +379,9 @@ Example usage:
        */
       getAttributes: function() {
         const userPool = this._getCognitoUserPool();
+          if (!userPool) return Promise.reject('No User Pool');
         const cognitoUser = userPool.getCurrentUser();
+          if (!cognitoUser) return Promise.reject('No Cognito User');
 
         return new Promise((resolve, reject) => {
           this._getCognitoAttributes(cognitoUser)
@@ -399,7 +403,9 @@ Example usage:
       resendVerificationCode: function(username) {
         this._log.debug(`Trying to resend confirmation code for ${username}`);
         const userPool = this._getCognitoUserPool();
+          if (!userPool) return Promise.reject('No User Pool');
         const cognitoUser = this._getCognitoUser(username, userPool);
+          if (!cognitoUser) return Promise.reject('No Cognito User');
         return new Promise((resolve, reject) => {
           this._setLoading(true);
           cognitoUser.resendConfirmationCode((error, result) => {
@@ -423,7 +429,9 @@ Example usage:
       requestPasswordResetCode: function(username) {
         this._log.debug(`Requesting password reset code for ${username}`);
         const userPool = this._getCognitoUserPool();
+          if (!userPool) return Promise.reject('No User Pool');
         const cognitoUser = this._getCognitoUser(username, userPool);
+          if (!cognitoUser) return Promise.reject('No Cognito User');
         return new Promise((resolve, reject) => {
           this._setLoading(true);
           cognitoUser.forgotPassword({
@@ -449,7 +457,9 @@ Example usage:
       resetPassword: function(username, password, code) {
         this._log.debug(`Resetting password for ${username}`);
         const userPool = this._getCognitoUserPool();
+          if (!userPool) return Promise.reject('No User Pool');
         const cognitoUser = this._getCognitoUser(username, userPool);
+          if (!cognitoUser) return Promise.reject('No Cognito User');
         return new Promise((resolve, reject) => {
           this._setLoading(true);
           cognitoUser.confirmPassword(code, password, {
@@ -492,15 +502,19 @@ Example usage:
        * @return {CognitoUserPool} The Cognito User Pool.
        */
       _getCognitoUserPool: function() {
+        let userPool;
         const USER_POOL_DATA = {
           UserPoolId: this.userPoolId,
           ClientId: this.clientId,
         };
-        // const USER_POOL_URL = `cognito-idp${region}.amazonaws.com/${userPoolId}`;
-        // NOTE: to use federated IDs, generate ARN and refer to it here.
-        // see https://medium.com/@kangzeroo/user-management-with-aws-cognito-2-3-the-core-functionality-ec15849618a4#.l5h7n5gru
-        let userPool = new AWSCognito.CognitoIdentityServiceProvider
-          .CognitoUserPool(USER_POOL_DATA);
+        try {
+          // eslint-disable-next-line max-len
+          userPool = new AWSCognito.CognitoIdentityServiceProvider.CognitoUserPool(USER_POOL_DATA);
+        } catch (e) {
+          this.dispatchEvent(new ErrorEvent('error', e));
+          userPool = null;
+        }
+
         return userPool;
       },
 
