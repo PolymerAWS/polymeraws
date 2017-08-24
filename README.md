@@ -23,11 +23,22 @@ Example usage:
 
 ```html
 <aws-app region="us-east-1"></aws-app>
+
 <aws-cognito id="cognito"
-    user-pool-id="us-east-1_XXXXXXXXX"
-    client-id="3XXXXXfea3nXXX0k3XXXXXX9p5"
-    identity-pool-id="us-east-1:XXXXXXXX-XXXX-XXXX-XXXX-XXXXAXXXXXXX"
+    region="[[region]]"
+    user-pool-id="[[userPoolId]]"
+    client-id="[[clientId]]"
+    identity-pool-id="[[identityPoolId]]"
+    user="{{cognitoUser}}"
+    attributes="{{attributes}}"
+    credentials="{{credentials}}"
+    identity-id="{{identityId}}"
+    logged-in="{{loggedIn}}"
+    session="{{session}}"
+    loading="{{user.loading}}"
+    on-login-success="_handleLoginSuccess"
 ></aws-cognito>
+
 ```
 
 ## \<aws-dynamodb\>
