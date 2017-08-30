@@ -87,7 +87,6 @@ Example usage:
         user: {
           type: Object,
           computed: '_computeUser(username, userPool)',
-          observer: '_userChanged',
           notify: true,
         },
 
@@ -143,6 +142,7 @@ Example usage:
           type: Boolean,
           readOnly: true,
           notify: true,
+          value: false,
         },
 
         /**
@@ -151,7 +151,7 @@ Example usage:
         loggedIn: {
           type: Boolean,
           notify: true,
-          computed: '_computeLoggedIn(user, session, credentials, user.*, session.*, credentials.*)',
+          computed: '_computeLoggedIn(user, session, credentials, providers, user.*, session.*, credentials.*, providers.*)',
           observer: '_loggedInChanged',
           value: false,
         },
@@ -212,6 +212,7 @@ Example usage:
         '_attributesChanged(attributes)',
         '_providersChanged(providers, providers.splices)',
         '_credentialsChanged(user, credentials)',
+        '_computeSession(user, credentials.expired)',
       ],
 
       ready: function() {
@@ -259,8 +260,8 @@ Example usage:
           const user = this.user || new CISP.CognitoUser({Username, Pool});
           user.confirmRegistration(code, true, (error, result) => {
             this._setLoading(false);
-            if (error) {this._fire('confirm-failure', error); reject(error);}
-            else {this._fire('confirm-success', result); resolve(result);}
+            if (error) {this.fire('confirm-failure', error); reject(error);}
+            else {this.fire('confirm-success', result); resolve(result);}
           });
         });
       },
@@ -284,8 +285,8 @@ Example usage:
             resolve({message, username});
           })
           .catch((error) => {
-            this._fireError(error);
-            this._fire('login-failure', error);
+            this.fireError(error);
+            this.fire('login-failure', error);
           });
         });
       },
@@ -443,9 +444,6 @@ Example usage:
         if (!credentials) return;
         AWS.config.credentials = credentials;
         if (credentials.expired) return this.refreshCredentials();
-        this._getAttributes(user)
-          .then((attributes) => this._setAttributes(attributes))
-          .catch((error) => error && this._fireError(error));
       },
 
       _loggedInChanged: function(loggedIn) {
@@ -529,13 +527,14 @@ Example usage:
       },
 
       /**
-       * Refreshes the session if necessary.
+       * Sets the session when the user exists and credentials are fresh
        * @param  {CognitoUser}  user The Cognito user.
+       * @param  {Boolean}  expired Whether or not the credentials are expired.
        */
-      _userChanged: function(user) {
-        !this.session && user.username && this._getSession(user)
+      _computeSession: function(user, expired) {
+        user.username && !expired && this._getSession(user)
           .then((session) => this._setSession(session))
-          .catch((error) => error && this._fireError(error));
+          .catch((error) => error && this.fireError(error));
       },
 
       /**
@@ -552,8 +551,7 @@ Example usage:
         credentials.expired = true;
         credentials.refresh((error) =>
           error ? this.fireError(error)
-                : this._setCredentials(AWS.config.credentials));
-        this.refreshCredentials();
+                : this._setCredentials(credentials));
       },
 
       /**
@@ -568,10 +566,13 @@ Example usage:
        *                                      the Cognito session.
        */
       _getSession: function(user) {
-        this._setLoading(true);
         if (!user.username) return Promise.reject();
+        this._setLoading(true);
         return new Promise((resolve, reject) => {
-          user.getSession((err, sess) => err ? reject(err) : resolve(sess));
+          user.getSession((err, sess) => {
+            this._setLoading(false);
+            err ? reject(err) : resolve(sess);
+          });
         });
       },
 
@@ -615,7 +616,7 @@ Example usage:
             credentials = new AWS.CognitoIdentityCredentials({IdentityPoolId});
             credentials.refresh((error) =>
               error ? this.fireError(error)
-                    : this._setCredentials(AWS.config.credentials));
+                    : this._setCredentials(credentials));
       },
 
       /**
@@ -648,6 +649,7 @@ Example usage:
             onSuccess: (cognitoSession) => {
               this._setSession(cognitoSession);
               resolve(cognitoSession);
+              this._setLoading(false);
             },
             onFailure: (error) => {
               this._setLoading(false);
@@ -663,7 +665,7 @@ Example usage:
        * @param  {Object} detail detail object.
        * @param  {Object} params Params (don't use this).
        */
-      _fire: this.fire || function(type, detail, params) {
+      fire: this.fire || function(type, detail, params) {
         this.dispatchEvent(new CustomEvent(type, {
           detail, bubbles: true, composed: true,
         }));
@@ -673,7 +675,7 @@ Example usage:
        * Fires an error event with an error
        * @param  {Object} error error.
        */
-      _fireError: function(error) {
+      fireError: function(error) {
         this.dispatchEvent(new ErrorEvent('error', {
           error, bubbles: true, composed: true,
         }));
