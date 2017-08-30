@@ -550,7 +550,9 @@ Example usage:
         const params = {IdentityPoolId, Logins};
         const credentials = new AWS.CognitoIdentityCredentials(params);
         credentials.expired = true;
-        this._setCredentials(credentials);
+        credentials.refresh((error) =>
+          error ? this.fireError(error)
+                : this._setCredentials(AWS.config.credentials));
         this.refreshCredentials();
       },
 
@@ -611,8 +613,9 @@ Example usage:
         let credentials = new AWS.CognitoIdentityCredentials({IdentityPoolId});
             credentials.clearCachedId(); // https://github.com/aws/aws-sdk-js/issues/609
             credentials = new AWS.CognitoIdentityCredentials({IdentityPoolId});
-        this._setCredentials(credentials);
-        this.refreshCredentials();
+            credentials.refresh((error) =>
+              error ? this.fireError(error)
+                    : this._setCredentials(AWS.config.credentials));
       },
 
       /**
