@@ -211,7 +211,7 @@ Example usage:
       observers: [
         '_attributesChanged(attributes)',
         '_providersChanged(providers, providers.splices)',
-        '_credentialsChanged(user, credentials)',
+        '_credentialsChanged(credentials)',
         '_computeSession(user, credentials.expired)',
       ],
 
@@ -411,7 +411,7 @@ Example usage:
        * @param  {Boolean} loggedIn loggedIn property.
        * @return {Boolean}
        */
-      _computeShouldRefresh: (noAuto, loggedIn) => !noAuto && loggedIn,
+      _computeShouldRefresh: (noAuto, loggedIn) => noAuto == false && loggedIn,
 
       /**
        * Computes a cognitoUser object from the pool.
@@ -419,7 +419,8 @@ Example usage:
        * @param  {CognitoUserPool}  Pool The Cognito user pool.
        * @return {CognitoUser}           The Cognito user.
        */
-      _computeUser: (Username, Pool) => new CISP.CognitoUser({Username, Pool}),
+      _computeUser: (Username, Pool) => Username && Pool &&
+        new CISP.CognitoUser({Username, Pool}),
 
       /**
        * Computes a userPool object from User Pool ID and Client ID.
@@ -436,11 +437,10 @@ Example usage:
 
       /**
        * Refreshes credentials if needed and fetches user attributes.
-       * @param  {CognitoUser} user        The Cognito user.
        * @param  {CognitoCredentials} credentials The Cognito credentials.
        * @return {undefined}
        */
-      _credentialsChanged: function(user, credentials) {
+      _credentialsChanged: function(credentials) {
         if (!credentials) return;
         AWS.config.credentials = credentials;
         if (credentials.expired) return this.refreshCredentials();
@@ -532,7 +532,7 @@ Example usage:
        * @param  {Boolean}  expired Whether or not the credentials are expired.
        */
       _computeSession: function(user, expired) {
-        user.username && !expired && this._getSession(user)
+        user && user.username && expired == false && this._getSession(user)
           .then((session) => this._setSession(session))
           .catch((error) => error && this.fireError(error));
       },
