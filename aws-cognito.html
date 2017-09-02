@@ -400,7 +400,7 @@ Example usage:
        * @return {Boolean}                Whether the user is logged in.
        */
       _computeLoggedIn: (user, session, credentials) =>
-        user && session.isValid() &&
+        user && session && session.isValid() &&
         credentials &&
         credentials.params &&
         !!credentials.params.Logins,
