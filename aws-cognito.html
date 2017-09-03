@@ -1,5 +1,6 @@
 <link rel="import" href="../polymer/polymer.html">
 <link rel="import" href="../log-behavior/log-behavior.html">
+<link rel="import" href="../fire-behavior/fire-behavior.html">
 <link rel="import" href="./aws-cognito-script.html">
 
 <!--
@@ -656,18 +657,6 @@ Example usage:
             },
           });
         });
-      },
-
-      /**
-       * P1? 💃 P2? You're good too.
-       * @param  {String} type   Event type.
-       * @param  {Object} detail detail object.
-       * @param  {Object} params Params (don't use this).
-       */
-      fire: this.fire || function(type, detail, params) {
-        this.dispatchEvent(new CustomEvent(type, {
-          detail, bubbles: true, composed: true,
-        }));
       },
 
       /**

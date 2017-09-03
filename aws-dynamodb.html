@@ -1,5 +1,6 @@
 <link rel="import" href="../polymer/polymer.html">
 <link rel="import" href="../log-behavior/log-behavior.html">
+<link rel="import" href="../fire-behavior/fire-behavior.html">
 
 <!--
 `<aws-dynamodb>` provides an easy way to retrieve and update AWS DynamoDB data.
@@ -80,7 +81,7 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
            */
           conditions: {
             type: Array,
-            value: [],
+            value: () => [],
           },
 
           /**
@@ -376,6 +377,14 @@ The 'aws-dynamodb' element initializes `AWS` in `aws-dynamodb`.
         },
 
         _computeParams: function(table, limit, traversal, index, conditions, filter) {
+          if (!(
+            table === undefined ||
+            limit === undefined ||
+            traversal === undefined ||
+            index === undefined ||
+            conditions === undefined ||
+            filter === undefined
+          )) return;
           if (table !== '') {
             this.set('_params', {
               ConsistentRead: this.consistentRead,
