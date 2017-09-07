@@ -536,7 +536,8 @@ Example usage:
        * @param  {Boolean}  expired Whether or not the credentials are expired.
        */
       _computeSession: function(user, expired) {
-        user && user.username && expired == false && this._getSession(user)
+        if (this.session && this.session.isValid()) return;
+        user.username && !expired && this._getSession(user)
           .then((session) => this._setSession(session))
           .catch((error) => error && this.fireError(error));
       },
