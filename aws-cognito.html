@@ -212,7 +212,7 @@ Example usage:
       observers: [
         '_providersChanged(providers, providers.splices)',
         '_credentialsChanged(credentials)',
-        '_computeSession(user, credentials.expired)',
+        '_computeSession(user, credentials.expired, credentials.*)',
       ],
 
       ready: function() {
