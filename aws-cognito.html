@@ -539,7 +539,7 @@ Example usage:
        */
       _computeSession: function(user, expired) {
         if (this.session && this.session.isValid()) return;
-        user.username && !expired && this._getSession(user)
+        user && user.username && !expired && this._getSession(user)
           .then((session) => this._setSession(session))
           .catch((error) => error && this.fireError(error));
       },
