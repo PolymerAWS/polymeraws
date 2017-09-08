@@ -400,10 +400,12 @@ Example usage:
        * @return {Boolean}                Whether the user is logged in.
        */
       _computeLoggedIn: (user, session, credentials) =>
-        user && session && session.isValid() &&
-        credentials &&
-        credentials.params &&
-        !!credentials.params.Logins,
+        !!(user &&
+           session &&
+           session.isValid() &&
+           credentials &&
+           credentials.params &&
+           !!credentials.params.Logins),
 
       /**
        * Tells the element if it should refresh the user's credentials.
