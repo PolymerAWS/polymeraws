@@ -132,7 +132,7 @@ Example usage:
          */
         identityId: {
           type: String,
-          readOnly: true,
+          computed: '_computeIdentityId(credentials.identityId)',
           notify: true,
         },
 
@@ -393,6 +393,10 @@ Example usage:
        * COMPUTED PROPERTIES
        */
 
+      _computeIdentityId(identityId) {
+        return identityId;
+      },
+
       /**
        * Computes loggedIn based on the user, session and credentials.
        * @param  {CognitoUser} user       The Cognito user.
@@ -451,10 +455,6 @@ Example usage:
 
       _loggedInChanged: function(loggedIn) {
         this._setLoading(false);
-        let identityId = null;
-        try {identityId = AWS.config.credentials.IdentityId;}
-        catch (e) {e;}
-        finally {this._setIdentityId(identityId);}
         if (!loggedIn) return;
         this._getAttributes(this.user).then((atts) => this._setAttributes(atts));
         this._shouldRefresh = !this.noAutoRefresh ? true : false;
