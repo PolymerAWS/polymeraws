@@ -413,6 +413,18 @@ Example usage:
            !!credentials.params.Logins),
 
       /**
+       * Sets the session when the user exists and credentials are fresh
+       * @param  {CognitoUser}  user The Cognito user.
+       * @param  {Boolean}  expired Whether or not the credentials are expired.
+       */
+      _computeSession: function(user, expired) {
+        if (this.session && this.session.isValid()) return;
+        user && user.username && !expired && this._getSession(user)
+          .then((session) => this._setSession(session))
+          .catch((error) => error && this.fireError(error));
+      },
+
+      /**
        * Tells the element if it should refresh the user's credentials.
        * @param  {Boolean} noAuto  noAutoRefresh property.
        * @param  {Boolean} loggedIn loggedIn property.
@@ -445,12 +457,11 @@ Example usage:
       /**
        * Refreshes credentials if needed and fetches user attributes.
        * @param  {CognitoCredentials} credentials The Cognito credentials.
-       * @return {undefined}
        */
       _credentialsChanged: function(credentials) {
         if (!credentials) return;
         AWS.config.credentials = credentials;
-        if (credentials.expired) return this.refreshCredentials();
+        this._refreshIfWillExpire(credentials);
       },
 
       _loggedInChanged: function(loggedIn) {
@@ -458,9 +469,17 @@ Example usage:
         if (!loggedIn) return;
         this._getAttributes(this.user).then((atts) => this._setAttributes(atts));
         this._shouldRefresh = !this.noAutoRefresh ? true : false;
+        this._refreshIfWillExpire();
         this.dispatchEvent(new CustomEvent('login-success', {
           detail: this.username, bubbles: true, composed: true,
         }));
+      },
+
+      _refreshIfWillExpire: function(credentials) {
+        if (!credentials) credentials = AWS.config.credentials;
+        const EXPIRES_IN_MS = credentials.expireTime - Date.now();
+        const WILL_EXPIRE_SOON = EXPIRES_IN_MS <= 30 * 1000;
+        if (credentials.expired || WILL_EXPIRE_SOON) this.refreshCredentials();
       },
 
       /**
@@ -531,18 +550,6 @@ Example usage:
         finally {
           this.username = currentName;
         }
-      },
-
-      /**
-       * Sets the session when the user exists and credentials are fresh
-       * @param  {CognitoUser}  user The Cognito user.
-       * @param  {Boolean}  expired Whether or not the credentials are expired.
-       */
-      _computeSession: function(user, expired) {
-        if (this.session && this.session.isValid()) return;
-        user && user.username && !expired && this._getSession(user)
-          .then((session) => this._setSession(session))
-          .catch((error) => error && this.fireError(error));
       },
 
       /**
