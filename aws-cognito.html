@@ -300,11 +300,18 @@ Example usage:
         this._log.info(`Logging out user ${this.user.username}`);
         this._shouldRefresh = false;
         this.user.signOut();
+        this._reset();
+      },
+
+      _reset: function() {
         this.username = '';
-        AWS.config.credentials.clearCachedId(); // https://github.com/aws/aws-sdk-js/issues/609
         this._setCredentials(null);
-        this.providers.forEach(() => this.pop('providers'));
         this._setLoading(false);
+        this._setSession(null);
+        this.providers.forEach(() => this.pop('providers'));
+        try {
+          AWS.config.credentials.clearCachedId(); // https://github.com/aws/aws-sdk-js/issues/609
+        } catch (e) {null;}
       },
 
       /**
@@ -418,10 +425,17 @@ Example usage:
        * @param  {Boolean}  expired Whether or not the credentials are expired.
        */
       _computeSession: function(user, expired) {
-        if (this.session && this.session.isValid()) return;
-        user && user.username && !expired && this._getSession(user)
-          .then((session) => this._setSession(session))
-          .catch((error) => error && this.fireError(error));
+        if (!this.session && !this.session.isValid() && !expired &&
+            user && user.username) {
+          this._getSession(user)
+            .then((session) => this._setSession(session))
+            .catch((error) => {
+              error && this.fireError(error);
+              this._setSession(null);
+            });
+        } else {
+          this._setSession(null);
+        }
       },
 
       /**
@@ -430,7 +444,9 @@ Example usage:
        * @param  {Boolean} loggedIn loggedIn property.
        * @return {Boolean}
        */
-      _computeShouldRefresh: (noAuto, loggedIn) => noAuto == false && loggedIn,
+      _computeShouldRefresh: function(noAuto, loggedIn) {
+        return noAuto == false && loggedIn;
+      },
 
       /**
        * Computes a cognitoUser object from the pool.
@@ -438,8 +454,9 @@ Example usage:
        * @param  {CognitoUserPool}  Pool The Cognito user pool.
        * @return {CognitoUser}           The Cognito user.
        */
-      _computeUser: (Username, Pool) => Username && Pool &&
-        new CISP.CognitoUser({Username, Pool}),
+      _computeUser: function(Username, Pool) {
+        return Username && Pool && new CISP.CognitoUser({Username, Pool}) || null;
+      },
 
       /**
        * Computes a userPool object from User Pool ID and Client ID.
@@ -447,8 +464,10 @@ Example usage:
        * @param {String} ClientId The app client id.
        * @return {CognitoUserPool} The Cognito User Pool.
        */
-      _computeUserPool: (UserPoolId, ClientId) => UserPoolId && ClientId &&
-        new CISP.CognitoUserPool({UserPoolId, ClientId}),
+      _computeUserPool: function(UserPoolId, ClientId) {
+        return UserPoolId && ClientId &&
+          new CISP.CognitoUserPool({UserPoolId, ClientId}) || null;
+      },
 
       /**
        * OBSERVERS
@@ -466,7 +485,7 @@ Example usage:
 
       _loggedInChanged: function(loggedIn) {
         this._setLoading(false);
-        if (!loggedIn) return;
+        if (!loggedIn) return this._reset();
         this._getAttributes(this.user).then((atts) => this._setAttributes(atts));
         this._shouldRefresh = !this.noAutoRefresh ? true : false;
         this._refreshIfWillExpire();
@@ -488,6 +507,7 @@ Example usage:
        * @return {undefined}
        */
       _sessionChanged: function(session) {
+        if (!session) return;
         const url = `cognito-idp.${this.region}.amazonaws.com/${this.userPoolId}`;
         const token = session.getIdToken().getJwtToken();
         const provider = {url, token};
@@ -581,7 +601,7 @@ Example usage:
        *                                      the Cognito session.
        */
       _getSession: function(user) {
-        if (!user.username) return Promise.reject();
+        if (!user.username) return Promise.resolve(null);
         return new Promise((resolve, reject) => {
           user.getSession((error, sess) => {
             if (error) {
