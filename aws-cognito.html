@@ -308,6 +308,7 @@ Example usage:
         this._setCredentials(null);
         this._setLoading(false);
         this._setSession(null);
+        this._setAttributes(null);
         this.providers.forEach(() => this.pop('providers'));
         try {
           AWS.config.credentials.clearCachedId(); // https://github.com/aws/aws-sdk-js/issues/609
